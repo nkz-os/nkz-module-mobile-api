@@ -53,5 +53,6 @@ async def get_series(request: Request, parcel_id: str, metric: str | None = Quer
     raw = (await gather_with_budget(settings.request_budget_s, raw=src))["raw"]
     out = compose.build(metric, n, raw)
     logger.info("series tenant=%s urn=%s metric=%s days=%d source=%s", tenant, urn, metric, n, out.source)
-    app.state.cache_series.set(tenant, key, out)
+    if out.source in ("ok", "empty"):
+        app.state.cache_series.set(tenant, key, out)
     return out

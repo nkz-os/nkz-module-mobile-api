@@ -143,3 +143,12 @@ def test_series_cached(client, auth_headers, respx_mock):
         client.get(f"{B}/p1/series?metric=water_balance&days=7", headers=auth_headers)
     assert route.call_count == 1
     assert client.app.state.cache_series.get("acmefarm", f"series:{URN}:water_balance:7") is not None
+
+
+def test_series_failed_not_cached(client, auth_headers, respx_mock):
+    route = respx_mock.get("http://ch/api/crop-health/assessments/history")
+    route.mock(return_value=httpx.Response(500))
+    assert client.get(f"{B}/p1/series?metric=cwsi&days=7", headers=auth_headers).json()["source"] == "failed"
+    route.mock(return_value=httpx.Response(200, json={"points": [{"date": "2026-11-01", "cwsi": 0.3}]}))
+    r = client.get(f"{B}/p1/series?metric=cwsi&days=7", headers=auth_headers)
+    assert r.json()["source"] == "ok"

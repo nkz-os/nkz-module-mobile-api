@@ -38,5 +38,7 @@ async def get_parcels(request: Request, ctx=identity):
         app.state.cache_parcels.set(tenant, "ch:parcels", res["parcels"])
     out = compose.build(now=datetime.now(timezone.utc), **res)
     logger.info("parcels tenant=%s rows=%d source=%s", tenant, len(out.parcels), out.sources.cropHealth)
-    app.state.cache_parcels.set(tenant, "parcels", out)
+    # Risk status is not in the payload: a failed risk call must not be frozen either.
+    if res["parcels"].status in ("ok", "empty") and res["risk_alerts"].status in ("ok", "empty"):
+        app.state.cache_parcels.set(tenant, "parcels", out)
     return out

@@ -65,3 +65,11 @@ def test_crop_health_failure_not_cached_in_shared_slot(client, auth_headers, ups
     assert r.status_code == 200
     assert r.json()["sources"]["cropHealth"] == "failed" and r.json()["parcels"] == []
     assert client.app.state.cache_parcels.get("acmefarm", "ch:parcels") is None
+
+
+def test_failed_result_not_served_from_cache(client, auth_headers, upstream):
+    upstream["parcels"].mock(return_value=httpx.Response(500))
+    assert client.get(PATH, headers=auth_headers).json()["sources"]["cropHealth"] == "failed"
+    upstream["parcels"].mock(return_value=httpx.Response(200, json=PARCELS))
+    r = client.get(PATH, headers=auth_headers)
+    assert r.json()["sources"]["cropHealth"] == "ok" and len(r.json()["parcels"]) == 1

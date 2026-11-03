@@ -6,7 +6,7 @@ from typing import Any
 from ..ids import to_urn
 from ..schemas import Card, CardAction, CardPlain, TodaySources, TodaySummary, TodayV1
 from ..sources.base import SourceResult
-from ._util import _str, _unwrap
+from ._util import _lower, _str, _unwrap, alert_is_active, alert_ref_urn
 
 MAX_CARDS = 50
 MAX_WEATHER = 5
@@ -25,11 +25,6 @@ def _rows(res: SourceResult, key: str) -> list[dict]:
         return []
     rows = res.data.get(key)
     return [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
-
-
-def _lower(v: Any) -> str | None:
-    v = _unwrap(v)
-    return v.lower() if isinstance(v, str) and v else None
 
 
 def _plain(alert: dict, lang: str) -> CardPlain | None:
@@ -52,13 +47,11 @@ def _risk_cards(res: SourceResult, lang: str, now: str) -> list[Card]:
     cards: list[Card] = []
     for a in _rows(res, "alerts"):
         aid = _str(a.get("id"))
-        status = _lower(a.get("status"))
-        if not aid or (status is not None and status != "active"):
+        if not aid or not alert_is_active(a):
             continue
         sev, cat = _lower(a.get("severity")), _lower(a.get("category"))
         atype = _lower(a.get("alertType")) or "unknown"
-        ref = _unwrap(a.get("refEntity"))
-        urn = to_urn(ref) if isinstance(ref, str) and ref else None
+        urn = alert_ref_urn(a)
         name = _unwrap(a.get("refEntityName"))
         explicit = _lower(a.get("urgency"))
         if explicit in ("vibrate", "silent"):

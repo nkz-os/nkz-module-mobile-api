@@ -5,9 +5,9 @@ from datetime import datetime
 from ..ids import to_urn
 from ..schemas import Light, ParcelRow, ParcelsSources, ParcelsV1
 from ..sources.base import SourceResult
-from ._util import _num, _str, _unwrap
+from ._util import _lower, _num, _str, _unwrap, alert_is_active, alert_ref_urn
 from .lights import severity_to_level
-from .today import _iso, _lower, _rows
+from .today import _iso, _rows
 
 _FRESHNESS = ("fresh", "aging", "stale", "none")
 
@@ -16,16 +16,12 @@ def _treat_by_parcel(res: SourceResult) -> dict[str, str | None]:
     """URN -> disease/alert type for active high|critical risk alerts."""
     out: dict[str, str | None] = {}
     for a in _rows(res, "alerts"):
-        status = _lower(a.get("status"))
-        if status is not None and status != "active":
+        if not alert_is_active(a):
             continue
         if _lower(a.get("severity")) not in ("high", "critical"):
             continue
-        ref = _unwrap(a.get("refEntity"))
-        if not isinstance(ref, str) or not ref:
-            continue
-        urn = to_urn(ref)
-        if urn not in out:
+        urn = alert_ref_urn(a)
+        if urn is not None and urn not in out:
             out[urn] = _lower(a.get("alertType")) or _str(_unwrap(a.get("disease")))
     return out
 
