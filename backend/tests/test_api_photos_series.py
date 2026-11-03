@@ -8,6 +8,11 @@ URN = "urn:ngsi-ld:AgriParcel:p1"
 ENT = "http://orion:1026/ngsi-ld/v1/entities"
 
 
+@pytest.fixture(autouse=True)
+def parcel(respx_mock):
+    return respx_mock.get(f"{ENT}/{URN}").mock(return_value=httpx.Response(200, json={"id": URN}))
+
+
 # --- photos -------------------------------------------------------------------
 
 def _rec(i, url="/api/field-images/k1", **kw):
@@ -173,3 +178,44 @@ def test_series_failed_not_cached(client, auth_headers, respx_mock):
     route.mock(return_value=httpx.Response(200, json={"points": [{"date": "2026-11-01", "cwsi": 0.3}]}))
     r = client.get(f"{B}/p1/series?metric=cwsi&days=7", headers=auth_headers)
     assert r.json()["source"] == "ok"
+
+
+BAD = "urn:x%2F..%2F..%2Finternal"
+
+
+def test_invalid_parcel_id_400_everywhere(client, auth_headers):
+    for path in (f"{B}/{BAD}/photos", f"{B}/{BAD}/series?metric=rain&days=7",
+                 f"/api/mobile/briefing/{BAD}"):
+        r = client.get(path, headers=auth_headers)
+        assert r.status_code == 400 and r.json() == {"error": "invalid_parcel_id"}, path
+
+
+def test_photos_unknown_parcel_404(client, auth_headers, respx_mock, parcel):
+    parcel.mock(return_value=httpx.Response(404))
+    q = respx_mock.get(ENT).mock(return_value=httpx.Response(200, json=[_rec(1)]))
+    r = client.get(f"{B}/p1/photos", headers=auth_headers)
+    assert r.status_code == 404 and r.json() == {"error": "parcel_not_found"}
+    assert q.call_count == 0
+
+
+def test_photos_parcel_check_failure_continues(client, auth_headers, respx_mock, parcel):
+    parcel.mock(return_value=httpx.Response(500))
+    respx_mock.get(ENT).mock(return_value=httpx.Response(200, json=[_rec(1)]))
+    r = client.get(f"{B}/p1/photos", headers=auth_headers)
+    assert r.status_code == 200 and r.json()["source"] == "ok"
+
+
+def test_series_unknown_parcel_404(client, auth_headers, respx_mock, parcel):
+    parcel.mock(return_value=httpx.Response(404))
+    h = respx_mock.get("http://ch/api/crop-health/assessments/history")
+    r = client.get(f"{B}/p1/series?metric=cwsi&days=7", headers=auth_headers)
+    assert r.status_code == 404 and r.json() == {"error": "parcel_not_found"}
+    assert h.call_count == 0
+
+
+def test_series_parcel_check_failure_continues(client, auth_headers, respx_mock, parcel):
+    parcel.mock(side_effect=httpx.ReadTimeout("x"))
+    respx_mock.get("http://ch/api/crop-health/assessments/history").mock(
+        return_value=httpx.Response(200, json={"points": [{"date": "2026-11-01", "cwsi": 0.3}]}))
+    r = client.get(f"{B}/p1/series?metric=cwsi&days=7", headers=auth_headers)
+    assert r.status_code == 200 and r.json()["source"] == "ok"

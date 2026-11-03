@@ -10,7 +10,7 @@ from ..auth import identity
 from .errors import bad_request
 from ..compose import briefing as compose
 from ..forward import from_request
-from ..ids import to_short, to_urn
+from ..ids import is_valid, to_short, to_urn
 from ..schemas import BriefingV1
 from ..sources import crop_health, field_ops, orion, risk, soil, weather
 from ..sources.base import gather_with_budget
@@ -28,6 +28,8 @@ async def get_briefing(request: Request, parcel_id: str, lang: str | None = Quer
     lang = lang or settings.default_lang
     if lang not in LANGS:
         return bad_request("invalid_lang")
+    if not is_valid(parcel_id):
+        return bad_request("invalid_parcel_id")
     urn = to_urn(parcel_id)
     tenant = ctx.tenant_id
     key = f"briefing:{urn}:{lang}"

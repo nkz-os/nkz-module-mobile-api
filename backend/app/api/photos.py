@@ -6,11 +6,12 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Query, Request
+from fastapi.responses import JSONResponse
 
 from ..auth import identity
 from .errors import bad_request
 from ..compose._util import _num, _str
-from ..ids import to_urn
+from ..ids import is_valid, to_urn
 from ..schemas import Photo, PhotosV1
 from ..sources import orion
 
@@ -45,6 +46,8 @@ def _photo(e: dict) -> Photo | None:
 @router.get("/parcels/{parcel_id:path}/photos", response_model=PhotosV1)
 async def get_photos(request: Request, parcel_id: str, since: str | None = Query(default=None),
                      limit: str = Query(default="50"), ctx=identity):
+    if not is_valid(parcel_id):
+        return bad_request("invalid_parcel_id")
     try:
         n = int(limit)
     except ValueError:
@@ -58,7 +61,11 @@ async def get_photos(request: Request, parcel_id: str, since: str | None = Query
         except ValueError:
             return bad_request("invalid_since")
     urn = to_urn(parcel_id)
-    res = await orion.photos(request.app.orion(ctx), urn, since_dt, n)
+    client = request.app.orion(ctx)
+    exists = await orion.parcel_exists(client, urn)
+    if exists.status == "empty":
+        return JSONResponse(status_code=404, content={"error": "parcel_not_found"})
+    res = await orion.photos(client, urn, since_dt, n)
     rows = res.data if res.status == "ok" and isinstance(res.data, list) else []
     photos = [p for p in (_photo(e) for e in rows if isinstance(e, dict)) if p]
     logger.info("photos tenant=%s urn=%s n=%d source=%s", ctx.tenant_id, urn, len(photos), res.status)
