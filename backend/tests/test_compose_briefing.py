@@ -101,7 +101,21 @@ def test_soil_empty_keeps_crop_health_moisture():
     assert b.soil.textureClass == "clay loam"  # from latest.soilProperties
 
 
-def test_perennial_without_sowing_date():
+def test_operations_after_now_excluded():
+    rows = [{"id": "past", "operationType": "tillage", "status": "completed",
+             "startedAt": "2026-10-25T08:00:00Z"},
+            {"id": "future", "operationType": "harvest", "status": "planned",
+             "startedAt": "2027-06-01T08:00:00Z"},
+            {"id": "dateonly", "operationType": "spraying", "status": "planned",
+             "startedAt": "2027-06-01"}]
+    b = run(ops={"operations": rows})
+    assert [o.id for o in b.operations] == ["past"]
+    assert b.soil.lastOperation.type == "tillage"
+
+
+def test_composer_tolerates_null_start_date():
+    # The SDK never reports a cycle without a start date as `current` (spec 5.12);
+    # the composer must still not break if one arrives.
     b = run(crop={"timeline": {"current": {"species": "OLEEU", "start": {"date": None, "provenance": "actual"}}},
                   "variety": None})
     assert b.crop.status == "active" and b.crop.sowingDate is None

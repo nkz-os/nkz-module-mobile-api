@@ -77,6 +77,8 @@ def _crop(crop: SourceResult, latest: SourceResult, lang: str, now: datetime) ->
     if not isinstance(current, dict):
         return Crop(status="none", variety=None, sowingDate=None, provenance=None,
                     daysSinceSowing=None, plannedCrop=planned)
+    # A cycle without a start date is never `current` in the SDK (spec 5.12); a null
+    # date is tolerated here (no sowing date, no day count), never relied on.
     start = current.get("start") if isinstance(current.get("start"), dict) else {}
     prov = start.get("provenance")
     prov = prov if prov in ("actual", "declared", "planned") else None
@@ -187,7 +189,15 @@ def _moisture(latest: SourceResult) -> SoilMoisture:
     return SoilMoisture(level=lvl if lvl in _MOISTURE else "unknown", ratio=_num(swb.get("swRatio")))
 
 
-def _ops(ops: SourceResult) -> list[Operation]:
+def _parse_when(value: str) -> datetime | None:
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _ops(ops: SourceResult, now: datetime) -> list[Operation]:
     rows = _data(ops).get("operations")
     out: list[Operation] = []
     for r in (rows if isinstance(rows, list) else []):
@@ -196,6 +206,9 @@ def _ops(ops: SourceResult) -> list[Operation]:
         when = _str(r.get("endedAt")) or _str(r.get("startedAt"))
         oid, typ = _str(r.get("id")), _str(r.get("operationType"))
         if oid and typ and when:
+            at = _parse_when(when)
+            if at is not None and at > now:
+                continue  # planned for the future: not something that happened
             out.append(Operation(id=oid, type=typ, date=when, status=_str(r.get("status")) or "unknown"))
     out.sort(key=lambda o: o.date, reverse=True)
     return out
@@ -249,6 +262,7 @@ def _state(latest: SourceResult, diseases: SourceResult, risk_alerts: SourceResu
     plant = lights.plant(assessment)
     risk = lights.risks(_data(diseases).get("risks"), _risk_alerts_for(risk_alerts, parcel_urn), risk_ok)
     fresh = _side(latest).get("freshness")
+    fresh = fresh if isinstance(fresh, str) else None
     return State(water=water, plant=plant, risks=risk, overall=lights.overall(water, plant, risk),
                  assessedAt=_str(assessment.get("assessedAt")),
                  freshness=fresh if fresh in _FRESHNESS else "none")
@@ -298,7 +312,7 @@ def build(*, parcel_urn: str, parcel_name: str | None, lang: str, now: datetime,
           phenology: SourceResult, agro: SourceResult, forecast3: SourceResult,
           wx_alerts: SourceResult, soil_summary: SourceResult, labs: SourceResult,
           ops: SourceResult, risk_alerts: SourceResult, yield_fc: SourceResult) -> BriefingV1:
-    operations = _ops(ops)
+    operations = _ops(ops, now)
     name = (parcel_name or _str((_assessment(latest) or {}).get("parcelName"))
             or _str(_data(agro).get("parcel_name")))
     return BriefingV1(

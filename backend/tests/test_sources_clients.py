@@ -96,3 +96,20 @@ async def test_upstream_500_is_failed(settings, ident):
         async with httpx.AsyncClient() as http:
             res = await risk.active_alerts(http, settings, ident)
     assert res.status == "failed"
+
+
+async def test_crop_health_parcels_uses_its_own_timeout(settings, ident, monkeypatch):
+    seen = {}
+
+    async def fake_call(name, factory, *, timeout_s, **kw):
+        seen[name] = timeout_s
+        return crop_health.SourceResult("empty")
+    monkeypatch.setattr(crop_health.base, "call", fake_call)
+    monkeypatch.setenv("SOURCE_TIMEOUT_PARCELS_S", "9")
+    get_settings.cache_clear()
+    s = get_settings()
+    async with httpx.AsyncClient() as http:
+        await crop_health.parcels(http, s, ident)
+        await crop_health.latest(http, s, ident, "p1")
+    assert seen["crop_health.parcels"] == 9.0
+    assert seen["crop_health.latest"] == s.source_timeout_s

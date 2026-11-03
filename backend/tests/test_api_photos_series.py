@@ -124,7 +124,7 @@ def test_series_rain_dates(client, auth_headers, respx_mock):
     r = client.get(f"{B}/p1/series?metric=rain&days=7", headers=auth_headers)
     assert r.status_code == 200 and r.json()["points"][0]["value"] == 1.2
     p = route.calls[0].request.url.params
-    assert p["end"] == _today().isoformat() and p["start"] == (_today() - timedelta(days=7)).isoformat()
+    assert p["end"] == _today().isoformat() and p["start"] == (_today() - timedelta(days=6)).isoformat()
 
 
 def test_series_vigor(client, auth_headers, respx_mock):
@@ -133,7 +133,7 @@ def test_series_vigor(client, auth_headers, respx_mock):
     r = client.get(f"{B}/p1/series?metric=vigor&days=90", headers=auth_headers)
     assert r.json()["unit"] == "ndvi" and r.json()["points"][0]["value"] == 0.61
     assert route.calls[0].request.url.params["entity_id"] == URN
-    assert route.calls[0].request.url.params["start"] == (_today() - timedelta(days=90)).isoformat()
+    assert route.calls[0].request.url.params["start"] == (_today() - timedelta(days=89)).isoformat()
 
 
 def test_series_empty_history(client, auth_headers, respx_mock):

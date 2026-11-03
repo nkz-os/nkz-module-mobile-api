@@ -151,3 +151,17 @@ def test_work_list_fields_survive_empty_assessments(client, auth_headers, upstre
     body = client.get(f"{PATH}/p1", headers=auth_headers).json()
     assert body["nextJob"] == {"kind": "sow", "when": "today", "detail": {"species": "TRZAX"}}
     assert body["crop"]["plannedCrop"] == {"species": "TRZAX", "name": "Trigo", "sowingDate": "2026-11-05"}
+
+
+def test_garbage_inside_otherwise_valid_payloads(client, auth_headers, upstream):
+    latest = load_fixture("crop_health/latest")
+    latest["freshness"] = ["fresh"]
+    upstream["latest"].mock(return_value=httpx.Response(200, json=latest))
+    upstream["diseases"].mock(return_value=httpx.Response(
+        200, json={"risks": [1, "x", None, ["a"], {"risk_level": ["high"], "disease": {"n": 1}}]}))
+    upstream["risk"].mock(return_value=httpx.Response(
+        200, json={"alerts": [1, "x", {"refEntity": URN, "severity": ["high"], "alertType": 7}]}))
+    r = client.get(f"{PATH}/p1", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["state"]["freshness"] == "none"

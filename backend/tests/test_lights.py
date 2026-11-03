@@ -131,3 +131,12 @@ def test_overall_single_and_params():
 )
 def test_severity_to_level(sev, level):
     assert lights.severity_to_level(sev) == level
+
+
+def test_risks_ignores_non_dict_items():
+    from app.compose import lights
+
+    out = lights.risks([1, "x", None, ["a"], {"risk_level": "high", "disease": "mildew"}],
+                       ["y", 2, {"severity": "critical", "alertType": "frost"}], True)
+    assert out.level == "bad" and out.params == {"disease": "mildew"}
+    assert lights.risks([1, "x"], [None], True).level == "ok"

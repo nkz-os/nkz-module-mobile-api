@@ -43,7 +43,7 @@ async def get_series(request: Request, parcel_id: str, metric: str | None = Quer
     ident = from_request(request, ctx)
     http = app.state.http
     end = datetime.now(timezone.utc).date()
-    start = end - timedelta(days=n)
+    start = end - timedelta(days=n - 1)  # inclusive: at most n points
     if metric in ("water_balance", "cwsi"):
         src = crop_health.history(http, settings, ident, to_short(urn), n)
     elif metric == "vigor":

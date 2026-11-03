@@ -15,3 +15,10 @@ def test_defaults_point_to_cluster_services(monkeypatch):
     assert s.vegetation_url == "http://vegetation-prime-api-service:8000"
     assert s.source_timeout_s == 5.0
     assert s.request_budget_s == 12.0
+
+
+def test_parcels_source_timeout_setting(monkeypatch):
+    monkeypatch.delenv("SOURCE_TIMEOUT_PARCELS_S", raising=False)
+    assert Settings(_env_file=None).source_timeout_parcels_s == 10.0
+    monkeypatch.setenv("SOURCE_TIMEOUT_PARCELS_S", "7")
+    assert Settings(_env_file=None).source_timeout_parcels_s == 7.0

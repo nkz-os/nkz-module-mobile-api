@@ -65,21 +65,25 @@ def plant(assessment: dict | None) -> Light:
 
 
 def risks(
-    diseases: list[dict] | None,
-    risk_alerts: list[dict] | None,
+    diseases: list | None,
+    risk_alerts: list | None,
     sources_ok: bool,
 ) -> Light:
     """diseases: crop-health `risks[]` (risk_level, disease); risk_alerts: already
     filtered to the parcel (severity lower-case)."""
     bad: dict | None = None
     warn: dict | None = None
-    for d in diseases or []:
+    for d in diseases if isinstance(diseases, list) else []:
+        if not isinstance(d, dict):
+            continue
         level = _s(d.get("risk_level"))
         if level in ("high", "critical") and bad is None:
             bad = d
         elif level == "medium" and warn is None:
             warn = d
-    for a in risk_alerts or []:
+    for a in risk_alerts if isinstance(risk_alerts, list) else []:
+        if not isinstance(a, dict):
+            continue
         level = _s(a.get("severity"))
         if level in ("high", "critical") and bad is None:
             bad = a

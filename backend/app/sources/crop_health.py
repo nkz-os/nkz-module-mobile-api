@@ -25,7 +25,7 @@ async def parcels(http: httpx.AsyncClient, settings: Settings, ident: Identity) 
     res = await base.call(
         "crop_health.parcels",
         lambda: http.get(url, headers=ident.headers),
-        timeout_s=settings.source_timeout_s,
+        timeout_s=settings.source_timeout_parcels_s,
         tenant=ident.tenant_id,
     )
     return mark_empty(res, "parcels")

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     # Deadlines (seconds)
     source_timeout_s: float = 5.0
+    source_timeout_parcels_s: float = 10.0  # crop-health /parcels fans out per parcel
     request_budget_s: float = 12.0
 
     # Cache TTLs (seconds)
