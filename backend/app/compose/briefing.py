@@ -29,6 +29,12 @@ def _data(res: SourceResult) -> dict:
     return res.data if res.status == "ok" and isinstance(res.data, dict) else {}
 
 
+def _side(res: SourceResult) -> dict:
+    """Side fields (nextJob, plannedCrop, ...) also ride on an `empty` result:
+    `mark_empty` keeps the payload when the assessments list is empty."""
+    return res.data if res.status in ("ok", "empty") and isinstance(res.data, dict) else {}
+
+
 def _ok(res: SourceResult) -> bool:
     return res.status == "ok" and isinstance(res.data, dict)
 
@@ -45,7 +51,7 @@ def _days_since(start: str | None, now: datetime) -> int | None:
 # --- sections ---------------------------------------------------------------
 
 def _planned(latest: SourceResult, lang: str) -> PlannedCrop | None:
-    p = _data(latest).get("plannedCrop")
+    p = _side(latest).get("plannedCrop")
     if not isinstance(p, dict):
         return None
     species, sowing = _str(p.get("species")), _str(p.get("sowingDate"))
@@ -242,7 +248,7 @@ def _state(latest: SourceResult, diseases: SourceResult, risk_alerts: SourceResu
     water = lights.water(assessment)
     plant = lights.plant(assessment)
     risk = lights.risks(_data(diseases).get("risks"), _risk_alerts_for(risk_alerts, parcel_urn), risk_ok)
-    fresh = _data(latest).get("freshness")
+    fresh = _side(latest).get("freshness")
     return State(water=water, plant=plant, risks=risk, overall=lights.overall(water, plant, risk),
                  assessedAt=_str(assessment.get("assessedAt")),
                  freshness=fresh if fresh in _FRESHNESS else "none")
@@ -273,7 +279,7 @@ def _forecast(yield_fc: SourceResult) -> YieldForecast | None:
 
 
 def _next_job(latest: SourceResult) -> NextJob | None:
-    j = _data(latest).get("nextJob")
+    j = _side(latest).get("nextJob")
     if isinstance(j, dict) and _str(j.get("kind")) and _str(j.get("when")):
         return NextJob(kind=j["kind"], when=j["when"],
                        detail=j["detail"] if isinstance(j.get("detail"), dict) else {})
@@ -281,7 +287,7 @@ def _next_job(latest: SourceResult) -> NextJob | None:
 
 
 def _surprise(latest: SourceResult) -> Surprise | None:
-    s = _data(latest).get("surprise")
+    s = _side(latest).get("surprise")
     if isinstance(s, dict) and _str(s.get("code")):
         return Surprise(code=s["code"], detail=s["detail"] if isinstance(s.get("detail"), dict) else {})
     return None

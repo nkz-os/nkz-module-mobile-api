@@ -139,3 +139,15 @@ def test_lang_validation_and_cache_key(client, auth_headers, upstream):
 def test_requires_user_id(client, auth_headers, upstream):
     h = {k: v for k, v in auth_headers.items() if k != "X-User-ID"}
     assert client.get(f"{PATH}/p1", headers=h).status_code == 401
+
+
+def test_work_list_fields_survive_empty_assessments(client, auth_headers, upstream):
+    # real crop-health shape for a parcel with no assessment yet
+    upstream["latest"].mock(return_value=httpx.Response(200, json={
+        "assessments": [],
+        "nextJob": {"kind": "sow", "when": "today", "detail": {"species": "TRZAX"}},
+        "plannedCrop": {"species": "TRZAX", "names": {"es": "Trigo"}, "sowingDate": "2026-11-05"},
+        "cropStatus": "none", "freshness": "none"}))
+    body = client.get(f"{PATH}/p1", headers=auth_headers).json()
+    assert body["nextJob"] == {"kind": "sow", "when": "today", "detail": {"species": "TRZAX"}}
+    assert body["crop"]["plannedCrop"] == {"species": "TRZAX", "name": "Trigo", "sowingDate": "2026-11-05"}
