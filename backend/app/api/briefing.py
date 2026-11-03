@@ -68,5 +68,7 @@ async def get_briefing(request: Request, parcel_id: str, lang: str | None = Quer
     out = compose.build(parcel_urn=urn, parcel_name=name, lang=lang,
                         now=datetime.now(timezone.utc), **res)
     logger.info("briefing tenant=%s urn=%s sources=%s", tenant, urn, out.sources.model_dump())
-    app.state.cache_briefing.set(tenant, key, out)
+    # A degraded response must not be frozen for the TTL.
+    if not any(v in ("failed", "timeout") for v in out.sources.model_dump().values()):
+        app.state.cache_briefing.set(tenant, key, out)
     return out

@@ -165,3 +165,14 @@ def test_garbage_inside_otherwise_valid_payloads(client, auth_headers, upstream)
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["state"]["freshness"] == "none"
+
+
+def test_degraded_briefing_not_cached(client, auth_headers, upstream):
+    upstream["ops"].mock(return_value=httpx.Response(500))
+    assert client.get(f"{PATH}/p1", headers=auth_headers).json()["sources"]["fieldOps"] == "failed"
+    upstream["ops"].mock(return_value=httpx.Response(200, json=load_fixture("field_ops/operations")))
+    r = client.get(f"{PATH}/p1", headers=auth_headers)
+    assert r.json()["sources"]["fieldOps"] == "ok"
+    n = total_calls(upstream)
+    client.get(f"{PATH}/p1", headers=auth_headers)
+    assert total_calls(upstream) == n  # the healthy response is cached

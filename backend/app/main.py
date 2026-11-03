@@ -1,5 +1,6 @@
 """Mobile API - application factory."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from nkz_platform_sdk.module_app import ModuleApp
@@ -14,6 +15,8 @@ from .cache import TTLCache
 from .config import get_settings
 from .sources.base import client as http_client
 
+logger = logging.getLogger(__name__)
+
 
 def create_app() -> ModuleApp:
     settings = get_settings()
@@ -25,6 +28,10 @@ def create_app() -> ModuleApp:
         try:
             yield
         finally:
+            try:
+                await app.aclose()  # SDK: closes the cached per-tenant Orion clients
+            except Exception:  # noqa: BLE001 - never block the rest of the shutdown
+                logger.exception("closing SDK clients failed")
             await app.state.http.aclose()
 
     app = ModuleApp(id="mobile-api", description="Mobile app composition API",

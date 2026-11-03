@@ -21,3 +21,19 @@ def test_refuses_to_start_without_hmac_secret(settings_env, monkeypatch):
 def test_health_ready(client):
     assert client.get("/health").status_code == 200
     assert client.get("/ready").status_code == 200
+
+
+def test_shutdown_closes_orion_clients(settings_env):
+    from unittest.mock import AsyncMock
+
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    app = create_app()
+    fake = AsyncMock()
+    with TestClient(app):
+        app._orion_clients["acmefarm"] = fake
+        fake.close.assert_not_awaited()
+    fake.close.assert_awaited_once()
+    assert app._orion_clients == {}

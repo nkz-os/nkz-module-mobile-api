@@ -44,5 +44,6 @@ async def get_today(request: Request, lang: str | None = Query(default=None), ct
         app.state.cache_parcels.set(tenant, "ch:parcels", res["parcels"])
     out = compose.build(now=datetime.now(timezone.utc), lang=lang, **res)
     logger.info("today tenant=%s cards=%d sources=%s", tenant, len(out.cards), out.sources.model_dump())
-    app.state.cache_today.set(tenant, key, out)
+    if not any(v in ("failed", "timeout") for v in out.sources.model_dump().values()):
+        app.state.cache_today.set(tenant, key, out)
     return out

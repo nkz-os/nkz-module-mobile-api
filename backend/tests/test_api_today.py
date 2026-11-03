@@ -82,3 +82,13 @@ def test_invalid_lang_400(client, auth_headers):
 
 def test_requires_identity(client, upstream):
     assert client.get(PATH).status_code in (401, 403)
+
+
+def test_degraded_today_not_cached(client, auth_headers, upstream):
+    upstream["risk"].mock(return_value=httpx.Response(500))
+    client.get(PATH, headers=auth_headers)
+    upstream["risk"].mock(return_value=httpx.Response(200, json=RISK))
+    r = client.get(PATH, headers=auth_headers)
+    assert r.json()["sources"]["risk"] == "ok"
+    assert client.get(PATH, headers=auth_headers).json()["sources"]["risk"] == "ok"
+    assert upstream["risk"].call_count == 2  # 500, then 200 (cached afterwards)
