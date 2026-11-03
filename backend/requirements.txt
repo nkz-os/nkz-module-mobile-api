@@ -1,0 +1,6 @@
+nkz-platform-sdk>=0.13.1
+fastapi>=0.115
+uvicorn[standard]
+httpx>=0.26
+pydantic>=2
+pydantic-settings>=2
