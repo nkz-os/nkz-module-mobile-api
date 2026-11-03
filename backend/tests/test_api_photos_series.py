@@ -54,12 +54,27 @@ def test_photos_since_and_limit_forwarded(client, auth_headers, respx_mock):
 def test_photos_400(client, auth_headers, qs):
     r = client.get(f"{B}/p1/photos?{qs}", headers=auth_headers)
     assert r.status_code == 400
+    assert r.json() == {"error": "invalid_since" if qs.startswith("since") else "invalid_limit"}
 
 
 def test_photos_source_failure_is_empty_list(client, auth_headers, respx_mock):
     respx_mock.get(ENT).mock(return_value=httpx.Response(500))
     r = client.get(f"{B}/p1/photos", headers=auth_headers)
-    assert r.status_code == 200 and r.json()["photos"] == []
+    assert r.status_code == 200 and r.json()["photos"] == [] and r.json()["source"] == "failed"
+
+
+def test_photos_source_ok_and_empty(client, auth_headers, respx_mock):
+    respx_mock.get(ENT).mock(return_value=httpx.Response(200, json=[_rec(1)]))
+    assert client.get(f"{B}/p1/photos", headers=auth_headers).json()["source"] == "ok"
+    respx_mock.get(ENT).mock(return_value=httpx.Response(200, json=[]))
+    assert client.get(f"{B}/p1/photos", headers=auth_headers).json()["source"] == "empty"
+
+
+def test_photos_without_date_dropped(client, auth_headers, respx_mock):
+    nodate = {"id": "urn:ngsi-ld:AgriParcelRecord:9", "imageUrl": "/api/field-images/k9"}
+    respx_mock.get(ENT).mock(return_value=httpx.Response(200, json=[nodate, _rec(1)]))
+    ph = client.get(f"{B}/p1/photos", headers=auth_headers).json()["photos"]
+    assert [p["id"] for p in ph] == ["urn:ngsi-ld:AgriParcelRecord:1"]
 
 
 # --- series -------------------------------------------------------------------
@@ -116,7 +131,9 @@ def test_series_source_failed_still_200(client, auth_headers, respx_mock):
 @pytest.mark.parametrize("qs", ["metric=nope&days=7", "metric=rain&days=14", "metric=rain",
                                 "days=7", "metric=rain&days=x"])
 def test_series_400(client, auth_headers, qs):
-    assert client.get(f"{B}/p1/series?{qs}", headers=auth_headers).status_code == 400
+    r = client.get(f"{B}/p1/series?{qs}", headers=auth_headers)
+    assert r.status_code == 400
+    assert r.json() == {"error": "invalid_metric" if qs in ("metric=nope&days=7", "days=7") else "invalid_days"}
 
 
 def test_series_cached(client, auth_headers, respx_mock):

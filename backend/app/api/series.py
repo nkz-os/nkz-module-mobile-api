@@ -3,9 +3,10 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 
 from ..auth import identity
+from .errors import bad_request
 from ..compose import series as compose
 from ..forward import from_request
 from ..ids import to_short, to_urn
@@ -23,13 +24,13 @@ DAYS = (7, 30, 90)
 async def get_series(request: Request, parcel_id: str, metric: str | None = Query(default=None),
                      days: str | None = Query(default=None), ctx=identity):
     if metric not in METRICS:
-        raise HTTPException(status_code=400, detail="invalid_metric")
+        return bad_request("invalid_metric")
     try:
         n = int(days) if days is not None else 0
     except ValueError:
         n = 0
     if n not in DAYS:
-        raise HTTPException(status_code=400, detail="invalid_days")
+        return bad_request("invalid_days")
     app = request.app
     settings = app.state.settings
     urn = to_urn(parcel_id)

@@ -76,7 +76,8 @@ def test_empty_parcels_stored(client, auth_headers, upstream):
 
 
 def test_invalid_lang_400(client, auth_headers):
-    assert client.get(PATH + "?lang=xx", headers=auth_headers).status_code == 400
+    r = client.get(PATH + "?lang=xx", headers=auth_headers)
+    assert r.status_code == 400 and r.json() == {"error": "invalid_lang"}
 
 
 def test_requires_identity(client, upstream):

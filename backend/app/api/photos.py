@@ -5,9 +5,10 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 
 from ..auth import identity
+from .errors import bad_request
 from ..compose._util import _num, _str
 from ..ids import to_urn
 from ..schemas import Photo, PhotosV1
@@ -33,10 +34,10 @@ def _location(v: Any) -> list[float] | None:
 
 
 def _photo(e: dict) -> Photo | None:
-    pid, url = _str(e.get("id")), _str(e.get("imageUrl"))
-    if not pid or not url:
+    pid, url, at = _str(e.get("id")), _str(e.get("imageUrl")), _str(e.get("dateObserved"))
+    if not pid or not url or not at:
         return None
-    return Photo(id=pid, imageUrl=_relative(url), capturedAt=_str(e.get("dateObserved")) or "",
+    return Photo(id=pid, imageUrl=_relative(url), capturedAt=at,
                  note=_str(e.get("note")), tag=_str(e.get("tag")),
                  location=_location(e.get("location")), accuracyM=_num(e.get("accuracy")))
 
@@ -47,18 +48,18 @@ async def get_photos(request: Request, parcel_id: str, since: str | None = Query
     try:
         n = int(limit)
     except ValueError:
-        raise HTTPException(status_code=400, detail="invalid_limit")
+        return bad_request("invalid_limit")
     if not 1 <= n <= 200:
-        raise HTTPException(status_code=400, detail="invalid_limit")
+        return bad_request("invalid_limit")
     since_dt = None
     if since is not None:
         try:
             since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
         except ValueError:
-            raise HTTPException(status_code=400, detail="invalid_since")
+            return bad_request("invalid_since")
     urn = to_urn(parcel_id)
     res = await orion.photos(request.app.orion(ctx), urn, since_dt, n)
     rows = res.data if res.status == "ok" and isinstance(res.data, list) else []
     photos = [p for p in (_photo(e) for e in rows if isinstance(e, dict)) if p]
     logger.info("photos tenant=%s urn=%s n=%d source=%s", ctx.tenant_id, urn, len(photos), res.status)
-    return PhotosV1(photos=photos)
+    return PhotosV1(photos=photos, source=res.status)

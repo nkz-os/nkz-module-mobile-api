@@ -287,6 +287,7 @@ class Photo(_Model):
 
 class PhotosV1(_Model):
     version: Literal[1] = 1
+    source: SourceStatus
     photos: list[Photo]
 
 

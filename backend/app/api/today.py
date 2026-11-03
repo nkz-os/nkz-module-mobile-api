@@ -3,9 +3,10 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 
 from ..auth import identity
+from .errors import bad_request
 from ..compose import today as compose
 from ..forward import from_request
 from ..schemas import TodayV1
@@ -23,7 +24,7 @@ async def get_today(request: Request, lang: str | None = Query(default=None), ct
     settings = app.state.settings
     lang = lang or settings.default_lang
     if lang not in LANGS:
-        raise HTTPException(status_code=400, detail="invalid_lang")
+        return bad_request("invalid_lang")
     tenant = ctx.tenant_id
     key = f"today:{lang}"
     cached = app.state.cache_today.get(tenant, key)

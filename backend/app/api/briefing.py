@@ -3,10 +3,11 @@
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
 from ..auth import identity
+from .errors import bad_request
 from ..compose import briefing as compose
 from ..forward import from_request
 from ..ids import to_short, to_urn
@@ -26,7 +27,7 @@ async def get_briefing(request: Request, parcel_id: str, lang: str | None = Quer
     settings = app.state.settings
     lang = lang or settings.default_lang
     if lang not in LANGS:
-        raise HTTPException(status_code=400, detail="invalid_lang")
+        return bad_request("invalid_lang")
     urn = to_urn(parcel_id)
     tenant = ctx.tenant_id
     key = f"briefing:{urn}:{lang}"

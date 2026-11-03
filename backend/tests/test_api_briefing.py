@@ -131,7 +131,8 @@ def test_cached_within_ttl_and_per_tenant(client, auth_headers, upstream, timeli
 
 
 def test_lang_validation_and_cache_key(client, auth_headers, upstream):
-    assert client.get(f"{PATH}/p1?lang=fr", headers=auth_headers).status_code == 400
+    r = client.get(f"{PATH}/p1?lang=fr", headers=auth_headers)
+    assert r.status_code == 400 and r.json() == {"error": "invalid_lang"}
     assert client.get(f"{PATH}/p1?lang=en", headers=auth_headers).json()["lang"] == "en"
 
 
