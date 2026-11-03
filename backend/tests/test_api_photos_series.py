@@ -1,0 +1,128 @@
+from datetime import date, timedelta, timezone, datetime
+
+import httpx
+import pytest
+
+B = "/api/mobile/parcels"
+URN = "urn:ngsi-ld:AgriParcel:p1"
+ENT = "http://orion:1026/ngsi-ld/v1/entities"
+
+
+# --- photos -------------------------------------------------------------------
+
+def _rec(i, url="/api/field-images/k1", **kw):
+    return {"id": f"urn:ngsi-ld:AgriParcelRecord:{i}", "imageUrl": url,
+            "dateObserved": "2026-10-05T10:00:00Z", **kw}
+
+
+def test_photos_mapping_and_fallback(client, auth_headers, respx_mock):
+    def handler(request):
+        if request.url.params["q"].startswith("hasAgriParcel"):
+            return httpx.Response(200, json=[])
+        return httpx.Response(200, json=[
+            _rec(1, note="n", tag="t", accuracy=4.5,
+                 location={"type": "Point", "coordinates": [-1.6, 42.8]}),
+            _rec(2, url="https://files.example.org/api/field-images/k2?x=1"),
+            _rec(3, url=None),
+            {"imageUrl": "/api/field-images/k4", "dateObserved": "2026-10-01T00:00:00Z"},
+        ])
+    route = respx_mock.get(ENT).mock(side_effect=handler)
+    r = client.get(f"{B}/p1/photos", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["version"] == 1
+    ph = body["photos"]
+    assert [p["id"] for p in ph] == ["urn:ngsi-ld:AgriParcelRecord:1", "urn:ngsi-ld:AgriParcelRecord:2"]
+    assert ph[0] == {"id": "urn:ngsi-ld:AgriParcelRecord:1", "imageUrl": "/api/field-images/k1",
+                     "capturedAt": "2026-10-05T10:00:00Z", "note": "n", "tag": "t",
+                     "location": [-1.6, 42.8], "accuracyM": 4.5}
+    assert ph[1]["imageUrl"] == "/api/field-images/k2"
+    assert ph[1]["note"] is None and ph[1]["location"] is None and ph[1]["accuracyM"] is None
+    assert route.calls[0].request.url.params["limit"] == "50"
+    assert URN in route.calls[0].request.url.params["q"]
+
+
+def test_photos_since_and_limit_forwarded(client, auth_headers, respx_mock):
+    route = respx_mock.get(ENT).mock(return_value=httpx.Response(200, json=[_rec(1)]))
+    r = client.get(f"{B}/{URN}/photos?since=2026-10-01T00:00:00Z&limit=7", headers=auth_headers)
+    assert r.status_code == 200
+    p = route.calls[0].request.url.params
+    assert p["limit"] == "7" and 'dateObserved>="2026-10-01T00:00:00Z"' in p["q"]
+
+
+@pytest.mark.parametrize("qs", ["limit=0", "limit=201", "limit=x", "since=yesterday"])
+def test_photos_400(client, auth_headers, qs):
+    r = client.get(f"{B}/p1/photos?{qs}", headers=auth_headers)
+    assert r.status_code == 400
+
+
+def test_photos_source_failure_is_empty_list(client, auth_headers, respx_mock):
+    respx_mock.get(ENT).mock(return_value=httpx.Response(500))
+    r = client.get(f"{B}/p1/photos", headers=auth_headers)
+    assert r.status_code == 200 and r.json()["photos"] == []
+
+
+# --- series -------------------------------------------------------------------
+
+def _today():
+    return datetime.now(timezone.utc).date()
+
+
+def test_series_water_balance_uses_short_id(client, auth_headers, respx_mock):
+    route = respx_mock.get("http://ch/api/crop-health/assessments/history").mock(
+        return_value=httpx.Response(200, json={"points": [
+            {"date": "2026-11-02", "balance": 4}, {"date": "2026-11-01", "balance": 3}]}))
+    r = client.get(f"{B}/{URN}/series?metric=water_balance&days=30", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["metric"] == "water_balance" and b["unit"] == "mm" and b["days"] == 30
+    assert [p["date"] for p in b["points"]] == ["2026-11-01", "2026-11-02"]
+    assert b["source"] == "ok"
+    p = route.calls[0].request.url.params
+    assert p["parcelId"] == "p1" and p["days"] == "30"
+
+
+def test_series_rain_dates(client, auth_headers, respx_mock):
+    route = respx_mock.get(f"http://wx/api/weather/parcel/{URN}/daily").mock(
+        return_value=httpx.Response(200, json={"days": [{"date": "2026-11-01", "precip_mm": 1.2}]}))
+    r = client.get(f"{B}/p1/series?metric=rain&days=7", headers=auth_headers)
+    assert r.status_code == 200 and r.json()["points"][0]["value"] == 1.2
+    p = route.calls[0].request.url.params
+    assert p["end"] == _today().isoformat() and p["start"] == (_today() - timedelta(days=7)).isoformat()
+
+
+def test_series_vigor(client, auth_headers, respx_mock):
+    route = respx_mock.get("http://veg/api/vegetation/bff/history").mock(
+        return_value=httpx.Response(200, json={"points": [{"date": "2026-11-01", "mean": 0.61}]}))
+    r = client.get(f"{B}/p1/series?metric=vigor&days=90", headers=auth_headers)
+    assert r.json()["unit"] == "ndvi" and r.json()["points"][0]["value"] == 0.61
+    assert route.calls[0].request.url.params["entity_id"] == URN
+    assert route.calls[0].request.url.params["start"] == (_today() - timedelta(days=90)).isoformat()
+
+
+def test_series_empty_history(client, auth_headers, respx_mock):
+    respx_mock.get("http://ch/api/crop-health/assessments/history").mock(
+        return_value=httpx.Response(200, json={"points": []}))
+    r = client.get(f"{B}/p1/series?metric=cwsi&days=7", headers=auth_headers)
+    assert r.json()["source"] == "empty" and r.json()["points"] == []
+
+
+def test_series_source_failed_still_200(client, auth_headers, respx_mock):
+    respx_mock.get(f"http://wx/api/weather/parcel/{URN}/daily").mock(return_value=httpx.Response(500))
+    r = client.get(f"{B}/p1/series?metric=tmax&days=7", headers=auth_headers)
+    assert r.status_code == 200 and r.json()["source"] == "failed"
+
+
+@pytest.mark.parametrize("qs", ["metric=nope&days=7", "metric=rain&days=14", "metric=rain",
+                                "days=7", "metric=rain&days=x"])
+def test_series_400(client, auth_headers, qs):
+    assert client.get(f"{B}/p1/series?{qs}", headers=auth_headers).status_code == 400
+
+
+def test_series_cached(client, auth_headers, respx_mock):
+    route = respx_mock.get("http://ch/api/crop-health/assessments/history").mock(
+        return_value=httpx.Response(200, json={"points": [{"date": "2026-11-01", "balance": 1}]}))
+    for _ in range(2):
+        client.get(f"{B}/p1/series?metric=water_balance&days=7", headers=auth_headers)
+    assert route.call_count == 1
+    assert client.app.state.cache_series.get("acmefarm", f"series:{URN}:water_balance:7") is not None
