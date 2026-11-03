@@ -12,6 +12,7 @@ from ..schemas import (
 from ..sources.base import SourceResult
 from ..ids import to_urn
 from . import lights, wmo
+from ._util import _num, _str, _unwrap
 
 _ORDER = {"ok": 0, "empty": 1, "failed": 2, "timeout": 3}
 _SEMAPHORES = {"optimal", "satisfied", "caution", "deficit", "not_suitable",
@@ -30,26 +31,6 @@ def _data(res: SourceResult) -> dict:
 
 def _ok(res: SourceResult) -> bool:
     return res.status == "ok" and isinstance(res.data, dict)
-
-
-def _num(v: Any) -> float | None:
-    if isinstance(v, bool) or not isinstance(v, (int, float)):
-        return None
-    return float(v)
-
-
-def _str(v: Any) -> str | None:
-    return v if isinstance(v, str) and v else None
-
-
-def _unwrap(v: Any) -> Any:
-    """NGSI-LD Property/Relationship -> bare value; bare values pass through."""
-    if isinstance(v, dict):
-        if "value" in v:
-            return v["value"]
-        if "object" in v:
-            return v["object"]
-    return v
 
 
 def _days_since(start: str | None, now: datetime) -> int | None:
