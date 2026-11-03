@@ -59,3 +59,12 @@ def test_version_fixed_to_one():
     data["version"] = 2
     with pytest.raises(ValidationError):
         SeriesV1.model_validate(data)
+
+
+def test_briefing_allows_null_crop_names_and_weather_readings():
+    data = load("briefing_v1.json")
+    data["crop"].update(status="unknown", species=None, name=None)
+    data["weather"]["now"] = {k: None for k in data["weather"]["now"]}
+    model = BriefingV1.model_validate(data)
+    assert model.crop.species is None and model.weather.now.tempC is None
+    assert model.model_dump(by_alias=True) == data

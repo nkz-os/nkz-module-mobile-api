@@ -53,8 +53,8 @@ class PlannedCrop(_Model):
 
 class Crop(_Model):
     status: Literal["active", "none", "unknown"]
-    species: str
-    name: str
+    species: str | None = None
+    name: str | None = None
     variety: str | None
     sowingDate: str | None
     provenance: Literal["actual", "declared", "planned"] | None
@@ -71,11 +71,11 @@ class Campaign(_Model):
 
 
 class WeatherNow(_Model):
-    observedAt: str
-    tempC: float
-    humidityPct: float
-    windMs: float
-    precipMm: float
+    observedAt: str | None
+    tempC: float | None
+    humidityPct: float | None
+    windMs: float | None
+    precipMm: float | None
 
 
 class WeatherSemaphores(_Model):
