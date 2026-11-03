@@ -1,0 +1,5 @@
+{"operations": [
+ {"id": "o1", "operationType": "sowing", "status": "completed", "startedAt": "2026-10-10T08:00:00Z", "endedAt": "2026-10-10T11:00:00Z"},
+ {"id": "o3", "operationType": "tillage", "status": "completed", "startedAt": "2026-10-25T08:00:00Z"},
+ {"id": "o2", "operationType": "spraying", "status": "planned", "startedAt": "2026-10-15T08:00:00Z", "endedAt": "2026-10-16T08:00:00Z"},
+ {"id": "bad", "operationType": "x", "status": "planned"}]}

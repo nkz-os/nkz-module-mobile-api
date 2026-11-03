@@ -1,0 +1,5 @@
+{"forecast": [
+ {"date": "2026-11-03", "temp_max": 16.5, "temp_min": 6.0, "weather_code": 1, "precip_mm": 0.0, "precip_probability": 5},
+ {"date": "2026-11-04", "temp_max": 15.0, "temp_min": 7.2, "weather_code": 61, "precip_mm": 3.4, "precip_probability": 70},
+ {"date": "2026-11-05", "temp_max": 14.1, "temp_min": 8.0, "weather_code": 95, "precip_mm": 8.0, "precip_probability": 90},
+ {"date": "2026-11-06", "temp_max": 14.0, "temp_min": 8.0, "weather_code": 3, "precip_mm": 0.0, "precip_probability": 10}]}

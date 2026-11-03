@@ -1,0 +1,10 @@
+{"assessments": [{"parcelId": "p1", "parcelName": "Norte", "cropName": "Trigo",
+  "overallSeverity": "MEDIUM", "recommendedAction": "IRRIGATE_SCHEDULED",
+  "compositeStressIndex": 30, "dominantStressor": "drought",
+  "soilWaterBalance": {"stressLevel": "moderate", "swRatio": 0.45},
+  "soilProperties": {"usdaTextureClass": "clay loam"},
+  "assessedAt": "2026-11-02T04:00:00Z"}],
+ "cropStatus": "active", "freshness": "fresh", "stale": false,
+ "nextJob": {"kind": "irrigate", "when": "today", "detail": {"mm": 12}},
+ "surprise": {"code": "frost_risk", "detail": {"minTempC": -1.0}},
+ "plannedCrop": {"species": "HORVX", "names": {"es": "Cebada", "en": "Barley"}, "sowingDate": "2026-11-20"}}

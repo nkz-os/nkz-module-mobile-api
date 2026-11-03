@@ -1,0 +1,3 @@
+{"parcel_id": "urn:ngsi-ld:AgriParcel:p1", "parcel_name": "Norte",
+ "weather": {"observed_at": "2026-11-03T07:00:00Z", "temperature": 11.4, "humidity": 78, "wind_speed": 2.1, "precipitation": 0.0},
+ "semaphores": {"spraying": "optimal", "workability": "caution", "irrigation": "weird"}}

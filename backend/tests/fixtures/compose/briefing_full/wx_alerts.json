@@ -1,0 +1,3 @@
+{"alerts": [
+ {"severity": "moderate", "description": "Heavy rain expected", "validFrom": "2026-11-05T00:00:00Z", "validTo": "2026-11-05T18:00:00Z"},
+ {"severity": "low", "description": "No validity", "validFrom": "2026-11-05T00:00:00Z"}]}

@@ -1,0 +1,4 @@
+{"alerts": [
+ {"id": "a1", "alertType": {"type": "Property", "value": "crop_stress"}, "severity": {"type": "Property", "value": "high"},
+  "status": {"type": "Property", "value": "active"}, "refEntity": {"type": "Relationship", "object": "urn:ngsi-ld:AgriParcel:p1"}},
+ {"id": "a2", "alertType": "frost", "severity": "critical", "status": "active", "refEntity": "urn:ngsi-ld:AgriParcel:other"}]}
