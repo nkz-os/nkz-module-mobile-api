@@ -13,7 +13,7 @@ from ..schemas import SourceStatus
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class SourceResult:
     status: SourceStatus
     data: Any = None
@@ -64,15 +64,22 @@ async def call(
 
 async def gather_with_budget(budget_s: float, **named: Awaitable[SourceResult]) -> dict[str, SourceResult]:
     tasks = {k: asyncio.ensure_future(v) for k, v in named.items()}
-    if tasks:
-        await asyncio.wait(tasks.values(), timeout=budget_s)
-    out: dict[str, SourceResult] = {}
-    for k, t in tasks.items():
-        if t.done() and not t.cancelled() and t.exception() is None:
-            out[k] = t.result()
-        elif t.done() and not t.cancelled():
-            out[k] = SourceResult("failed", error=type(t.exception()).__name__)
-        else:
+    try:
+        if tasks:
+            await asyncio.wait(tasks.values(), timeout=budget_s)
+        out: dict[str, SourceResult] = {}
+        for k, t in tasks.items():
+            if t.done() and not t.cancelled() and t.exception() is None:
+                out[k] = t.result()
+            elif t.done() and not t.cancelled():
+                out[k] = SourceResult("failed", error=type(t.exception()).__name__)
+            else:
+                out[k] = SourceResult("timeout", error="budget")
+        return out
+    finally:
+        # Also runs when this coroutine is itself cancelled (client disconnect).
+        pending = [t for t in tasks.values() if not t.done()]
+        for t in pending:
             t.cancel()
-            out[k] = SourceResult("timeout", error="budget")
-    return out
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)

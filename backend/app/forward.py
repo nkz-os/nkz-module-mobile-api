@@ -10,7 +10,7 @@ FORWARDED_HEADERS = (
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Identity:
     headers: dict[str, str]
     tenant_id: str

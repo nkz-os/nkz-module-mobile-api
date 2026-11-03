@@ -2,6 +2,7 @@ import asyncio
 import time
 
 import httpx
+from fastapi.testclient import TestClient
 import pytest
 import respx
 
@@ -57,6 +58,7 @@ async def test_500_failed(respx_mock):
     assert (r.status, r.error) == ("failed", "http_500")
 
 
+# assert_all_called=False: the call is cancelled by wait_for before respx sees it
 @respx.mock(assert_all_mocked=True, assert_all_called=False)
 async def test_slow_upstream_times_out_fast(respx_mock):
     async def slow(request):
@@ -113,3 +115,49 @@ async def test_client_uses_source_timeout(settings_env):
 
     async with base.client(get_settings()) as c:
         assert c.timeout.read == get_settings().source_timeout_s
+
+
+async def test_budget_expiry_awaits_cancelled_tasks():
+    flag = []
+
+    async def slow():
+        try:
+            await asyncio.sleep(5)
+        finally:
+            await asyncio.sleep(0.05)  # cleanup that needs to be awaited
+            flag.append("cleaned")
+        return SourceResult("ok")
+
+    out = await gather_with_budget(0.1, a=slow())
+    assert out["a"].status == "timeout"
+    assert flag == ["cleaned"]
+
+
+async def test_outer_cancel_cleans_up_tasks():
+    flag = []
+
+    async def slow():
+        try:
+            await asyncio.sleep(5)
+        finally:
+            await asyncio.sleep(0.05)
+            flag.append("cleaned")
+        return SourceResult("ok")
+
+    outer = asyncio.ensure_future(gather_with_budget(10, a=slow()))
+    await asyncio.sleep(0.1)
+    outer.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await outer
+    assert flag == ["cleaned"]
+
+
+def test_lifespan_opens_and_closes_http_client(settings_env):
+    from app.main import create_app
+
+    app = create_app()
+    with TestClient(app):
+        http = app.state.http
+        assert isinstance(http, httpx.AsyncClient)
+        assert not http.is_closed
+    assert http.is_closed
