@@ -68,3 +68,9 @@ def test_briefing_allows_null_crop_names_and_weather_readings():
     model = BriefingV1.model_validate(data)
     assert model.crop.species is None and model.weather.now.tempC is None
     assert model.model_dump(by_alias=True) == data
+
+
+def test_next_job_when_is_nullable():
+    from app.schemas import NextJob
+
+    assert NextJob(kind="scout", when=None, detail={}).when is None

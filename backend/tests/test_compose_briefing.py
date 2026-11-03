@@ -74,7 +74,7 @@ def test_operations_capped_at_ten():
 
 def test_crop_health_failed():
     f = SourceResult("failed", error="http_500")
-    b = run(crop=f, latest=f, diseases=f, phenology=f)
+    b = run(crop=f, latest=f, diseases=f, phenology=f, risk_alerts=f)
     assert b.state is None and b.nextJob is None and b.surprise is None and b.campaign is None
     assert b.crop.status == "unknown" and b.crop.plannedCrop is None
     assert b.sources.cropHealth == "failed"
@@ -92,7 +92,38 @@ def test_source_status_worst_of():
             soil_summary=SourceResult("failed"), labs=SourceResult("empty"))
     assert b.sources.weather == "timeout" and b.sources.soil == "failed"
     b2 = run(phenology=SourceResult("empty"))
-    assert b2.sources.cropHealth == "empty" and b2.campaign is None
+    assert b2.sources.cropHealth == "ok" and b2.campaign is None  # one source is ok
+
+
+def test_group_status_rules():
+    E, F, T = SourceResult("empty"), SourceResult("failed"), SourceResult("timeout")
+    assert run(diseases=E).sources.cropHealth == "ok"       # empty diseases + latest ok
+    assert run(wx_alerts=E).sources.weather == "ok"          # empty alerts + agro ok
+    assert run(diseases=F).sources.cropHealth == "failed"    # any failure degrades the group
+    assert run(diseases=F, phenology=T).sources.cropHealth == "timeout"  # timeout wins over failed
+    allempty = run(crop=E, latest=E, diseases=E, phenology=E)
+    assert allempty.sources.cropHealth == "empty"
+
+
+def test_next_job_with_null_when_is_kept():
+    b = run(latest={"assessments": [], "nextJob": {"kind": "scout", "when": None, "detail": {}}})
+    assert b.nextJob is not None and b.nextJob.kind == "scout" and b.nextJob.when is None
+
+
+def test_state_without_assessment_still_reports_risks():
+    b = run(latest={"assessments": [], "freshness": "none"},
+            diseases={"risks": [{"risk_level": "critical", "disease": "mildew"}]})
+    assert b.state is not None
+    assert (b.state.water.level, b.state.water.messageKey) == ("unknown", "state.unknown")
+    assert b.state.plant.level == "unknown"
+    assert b.state.risks.level == "bad" and b.state.overall.level == "bad"
+    assert b.state.freshness == "none" and b.state.assessedAt is None
+
+
+def test_state_without_assessment_and_no_risks_is_unknown_overall():
+    b = run(latest={"assessments": []}, diseases=SourceResult("empty"),
+            risk_alerts=SourceResult("empty"))
+    assert b.state.risks.level == "ok" and b.state.overall.level == "unknown"
 
 
 def test_soil_empty_keeps_crop_health_moisture():
@@ -196,3 +227,9 @@ def test_forecast_picks_yield_metric_and_legacy_value():
     f = run(yield_fc={"status": "done", "computed_at": "t",
                       "estimates": [{"value": 5.0, "harvestDate": "2027-01-01"}]}).forecast
     assert f.yield_.value == 5.0 and f.harvestDate == "2027-01-01"
+
+
+def test_crop_health_down_but_risk_alert_still_shows_state():
+    f = SourceResult("failed", error="http_500")
+    b = run(crop=f, latest=f, diseases=f, phenology=f)  # fixture risk alerts stay ok
+    assert b.state is not None and b.state.risks.level == "bad"

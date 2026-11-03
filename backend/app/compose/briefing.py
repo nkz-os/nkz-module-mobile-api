@@ -14,15 +14,19 @@ from ..ids import to_urn
 from . import lights, wmo
 from ._util import _num, _str, _unwrap
 
-_ORDER = {"ok": 0, "empty": 1, "failed": 2, "timeout": 3}
 _SEMAPHORES = {"optimal", "satisfied", "caution", "deficit", "not_suitable",
                "too_wet", "too_dry", "alert", "unknown"}
 _MOISTURE = {"none", "moderate", "high", "critical"}
 _FRESHNESS = {"fresh", "aging", "stale", "none"}
 
 
-def _worst(*results: SourceResult) -> str:
-    return max((r.status for r in results), key=lambda s: _ORDER[s])
+def _group(*results: SourceResult) -> str:
+    """Group status: timeout beats failed beats ok; empty only when nothing is ok."""
+    statuses = {r.status for r in results}
+    for s in ("timeout", "failed", "ok"):
+        if s in statuses:
+            return s
+    return "empty"
 
 
 def _data(res: SourceResult) -> dict:
@@ -255,12 +259,18 @@ def _risk_alerts_for(risk_alerts: SourceResult, parcel_urn: str) -> list[dict]:
 def _state(latest: SourceResult, diseases: SourceResult, risk_alerts: SourceResult,
            parcel_urn: str) -> State | None:
     assessment = _assessment(latest)
-    if assessment is None:
-        return None
     risk_ok = diseases.status in ("ok", "empty") and risk_alerts.status in ("ok", "empty")
+    risk = lights.risks(_data(diseases).get("risks"), _risk_alerts_for(risk_alerts, parcel_urn), risk_ok)
+    if assessment is None:
+        # No assessment: water and plant are unknown, but disease and risk alerts
+        # still count. With crop-health down and no risk signal there is nothing to say.
+        if latest.status in ("failed", "timeout") and risk.level == "unknown":
+            return None
+        water, plant = lights.water(None), lights.plant(None)
+        return State(water=water, plant=plant, risks=risk, overall=lights.overall(water, plant, risk),
+                     assessedAt=None, freshness="none")
     water = lights.water(assessment)
     plant = lights.plant(assessment)
-    risk = lights.risks(_data(diseases).get("risks"), _risk_alerts_for(risk_alerts, parcel_urn), risk_ok)
     fresh = _side(latest).get("freshness")
     fresh = fresh if isinstance(fresh, str) else None
     return State(water=water, plant=plant, risks=risk, overall=lights.overall(water, plant, risk),
@@ -294,8 +304,8 @@ def _forecast(yield_fc: SourceResult) -> YieldForecast | None:
 
 def _next_job(latest: SourceResult) -> NextJob | None:
     j = _side(latest).get("nextJob")
-    if isinstance(j, dict) and _str(j.get("kind")) and _str(j.get("when")):
-        return NextJob(kind=j["kind"], when=j["when"],
+    if isinstance(j, dict) and _str(j.get("kind")):
+        return NextJob(kind=j["kind"], when=_str(j.get("when")),
                        detail=j["detail"] if isinstance(j.get("detail"), dict) else {})
     return None
 
@@ -321,9 +331,9 @@ def build(*, parcel_urn: str, parcel_name: str | None, lang: str, now: datetime,
         generatedAt=now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         lang=lang,
         sources=BriefingSources(
-            cropHealth=_worst(crop, latest, diseases, phenology),
-            weather=_worst(agro, forecast3, wx_alerts),
-            soil=_worst(soil_summary, labs),
+            cropHealth=_group(crop, latest, diseases, phenology),
+            weather=_group(agro, forecast3, wx_alerts),
+            soil=_group(soil_summary, labs),
             fieldOps=ops.status, risk=risk_alerts.status, forecast=yield_fc.status),
         crop=_crop(crop, latest, lang, now),
         campaign=_campaign(phenology),

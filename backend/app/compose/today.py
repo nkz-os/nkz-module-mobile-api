@@ -102,7 +102,7 @@ def _parcel_cards(res: SourceResult, now: str) -> tuple[list[Card], list[Card], 
         job = r.get("nextJob")
         if isinstance(job, dict) and _str(job.get("kind")):
             kind = job["kind"]
-            when = _str(job.get("when")) or "later"
+            when = _str(job.get("when"))  # may be absent: never invented
             detail = job["detail"] if isinstance(job.get("detail"), dict) else {}
             if kind in _INFO_JOBS:
                 info.append(Card(

@@ -178,3 +178,13 @@ def test_severe_weather_sorts_before_silent_risk_alerts():
     out = build(risks=[risk("r-high", "high", "crop"), risk("r-med", "medium", "crop")],
                 wxs=[wx(1, "severe")])
     assert [c.id for c in out.cards] == ["w1", "r-high", "r-med"]
+
+
+def test_job_without_when_is_not_invented_and_sorts_after_today():
+    rows = [row("p1", nextJob={"kind": "scout", "when": None, "detail": {}}),
+            row("p2", nextJob={"kind": "sow", "when": "today", "detail": {}})]
+    out = build(parcels=rows)
+    assert [c.id.split(":")[-1] for c in out.cards] == ["sow", "scout"]
+    scout = out.cards[1]
+    assert scout.params == {"when": None} and scout.urgency == "silent"
+    assert out.summary.jobsToday == 1

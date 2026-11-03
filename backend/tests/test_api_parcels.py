@@ -27,7 +27,7 @@ def test_parcels_contract(client, auth_headers, upstream):
     r = client.get(PATH, headers=auth_headers)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["version"] == 1 and body["sources"] == {"cropHealth": "ok"}
+    assert body["version"] == 1 and body["sources"] == {"cropHealth": "ok", "risk": "empty"}
     row = body["parcels"][0]
     assert row["parcelId"] == P + "p1" and row["overall"]["level"] == "warn"
     assert row["stage"] == "tillering"

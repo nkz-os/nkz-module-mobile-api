@@ -176,7 +176,7 @@ class YieldForecast(_Model):
 
 class NextJob(_Model):
     kind: str
-    when: str
+    when: str | None
     detail: dict[str, Any]
 
 
@@ -253,6 +253,7 @@ class TodayV1(_Model):
 
 class ParcelsSources(_Model):
     cropHealth: SourceStatus
+    risk: SourceStatus
 
 
 class ParcelRow(_Model):

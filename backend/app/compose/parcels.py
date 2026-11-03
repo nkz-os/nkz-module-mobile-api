@@ -46,5 +46,5 @@ def build(*, now: datetime, parcels: SourceResult, risk_alerts: SourceResult) ->
             stage=_str(r.get("phenologyStage")), overall=overall,
             assessedAt=_str(r.get("assessedAt")),
             freshness=fresh if fresh in _FRESHNESS else "none"))
-    return ParcelsV1(generatedAt=_iso(now), sources=ParcelsSources(cropHealth=parcels.status),
+    return ParcelsV1(generatedAt=_iso(now), sources=ParcelsSources(cropHealth=parcels.status, risk=risk_alerts.status),
                      parcels=rows)

@@ -70,3 +70,8 @@ def test_rows_without_id_skipped_and_bad_freshness_none():
         {"parcelName": "x"}, _row("p1", freshness="weird")))
     assert [r.parcelId for r in out.parcels] == [P + "p1"]
     assert out.parcels[0].freshness == "none"
+
+
+def test_sources_include_risk_status():
+    out = compose.build(now=NOW, parcels=_ch(_row()), risk_alerts=SourceResult("failed"))
+    assert out.sources.model_dump() == {"cropHealth": "ok", "risk": "failed"}
