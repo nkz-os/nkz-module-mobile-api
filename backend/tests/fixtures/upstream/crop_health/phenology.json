@@ -1,0 +1,11 @@
+{
+ "parcelId": "p1",
+ "asOf": "2026-11-02",
+ "currentStage": "tillering",
+ "gdd": {
+  "accumulated": 512.4
+ },
+ "dataFidelity": "parcel_weather",
+ "deviation": 0.0,
+ "stages": []
+}

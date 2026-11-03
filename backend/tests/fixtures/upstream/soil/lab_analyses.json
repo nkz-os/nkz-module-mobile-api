@@ -1,0 +1,18 @@
+{
+ "parcelId": "urn:ngsi-ld:AgriParcel:p1",
+ "analyses": [
+  {
+   "id": "urn:ngsi-ld:SoilAnalysis:a1",
+   "samplingDate": "2026-03-10",
+   "laboratoryReference": "LAB-1",
+   "dataSource": "lab_analysis",
+   "horizons": [
+    {
+     "depthFrom": 0,
+     "depthTo": 30,
+     "organicMatter": 2.1
+    }
+   ]
+  }
+ ]
+}

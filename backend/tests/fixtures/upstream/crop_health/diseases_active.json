@@ -1,0 +1,13 @@
+{
+ "risks": [
+  {
+   "id": "urn:ngsi-ld:Alert:acmefarm:mildew:p1",
+   "disease": "mildew",
+   "crop": "vine",
+   "risk_level": "HIGH",
+   "confidence": "high",
+   "recommended_action": "Preventive fungicide application within 48h",
+   "parcelId": "p1"
+  }
+ ]
+}

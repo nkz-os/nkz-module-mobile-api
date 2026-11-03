@@ -1,0 +1,13 @@
+{
+ "status": "done",
+ "estimates": [
+  {
+   "kind": "yield",
+   "p50": 5200
+  }
+ ],
+ "season": "2025-26",
+ "unavailable": [],
+ "computed_at": "2026-11-02T02:00:00Z",
+ "refreshing": false
+}

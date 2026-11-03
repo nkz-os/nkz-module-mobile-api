@@ -1,0 +1,13 @@
+{
+ "horizons": [
+  {
+   "depthFrom": 0,
+   "depthTo": 30,
+   "sand": 42.0,
+   "clay": 24.0,
+   "saturation": 0.45,
+   "totalPorosity": 0.47
+  }
+ ],
+ "workabilityMethod": "pedotransfer"
+}

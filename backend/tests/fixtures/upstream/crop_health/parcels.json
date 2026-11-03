@@ -1,0 +1,20 @@
+{
+ "parcels": [
+  {
+   "parcelId": "p1",
+   "parcelName": "Norte",
+   "cropName": "Wheat",
+   "areaHa": 4.2,
+   "overallSeverity": "MEDIUM",
+   "hasData": true,
+   "cropStatus": "active",
+   "freshness": "fresh",
+   "nextJob": null
+  }
+ ],
+ "summary": {
+  "surprises": 0,
+  "jobsToday": 1,
+  "noData": 0
+ }
+}

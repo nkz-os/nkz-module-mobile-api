@@ -1,0 +1,16 @@
+{
+ "parcel_id": "urn:ngsi-ld:AgriParcel:p1",
+ "forecast_days": 3,
+ "forecast": [
+  {
+   "date": "2026-11-03",
+   "temp_max": 17.0,
+   "temp_min": 8.0,
+   "weather_code": 3,
+   "precip_mm": 0.2,
+   "precip_probability": 20,
+   "wind_speed_ms": 3.0
+  }
+ ],
+ "source": "OPEN-METEO"
+}

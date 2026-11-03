@@ -1,0 +1,14 @@
+{
+ "operations": [
+  {
+   "id": "urn:ngsi-ld:AgriParcelOperation:o1",
+   "operationType": "sowing",
+   "status": "completed",
+   "startedAt": "2026-10-20T08:00:00Z",
+   "endedAt": "2026-10-20T11:00:00Z",
+   "hasAgriParcel": "urn:ngsi-ld:AgriParcel:p1",
+   "areaCovered": 4.2
+  }
+ ],
+ "count": 1
+}

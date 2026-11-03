@@ -1,0 +1,13 @@
+{
+ "alerts": [
+  {
+   "id": "urn:ngsi-ld:WeatherAlert:meteoalarm:2",
+   "severity": "severe",
+   "description": "Frost warning",
+   "validFrom": "2026-11-04T00:00:00Z",
+   "validTo": "2026-11-04T09:00:00Z"
+  }
+ ],
+ "count": 1,
+ "source": "meteoalarm"
+}

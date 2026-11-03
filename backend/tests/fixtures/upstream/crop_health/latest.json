@@ -1,0 +1,27 @@
+{
+ "assessments": [
+  {
+   "parcelId": "p1",
+   "parcelName": "Norte",
+   "cropName": "Wheat",
+   "overallSeverity": "MEDIUM",
+   "recommendedAction": "MONITOR",
+   "cwsiValue": 0.31,
+   "vigorIndex": 0.62,
+   "soilWaterBalance": {
+    "stressLevel": "moderate"
+   },
+   "assessedAt": "2026-11-02T04:00:00Z"
+  }
+ ],
+ "cropStatus": "active",
+ "freshness": "fresh",
+ "stale": false,
+ "nextJob": {
+  "kind": "irrigate",
+  "when": "today",
+  "detail": {}
+ },
+ "surprise": null,
+ "plannedCrop": null
+}

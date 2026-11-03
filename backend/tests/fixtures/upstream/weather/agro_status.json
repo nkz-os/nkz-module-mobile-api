@@ -1,0 +1,17 @@
+{
+ "parcel_id": "urn:ngsi-ld:AgriParcel:p1",
+ "parcel_name": "Norte",
+ "weather": {
+  "temperature": 14.2,
+  "humidity": 71,
+  "wind_speed": 3.1,
+  "precipitation": 0.0,
+  "eto_today": 1.2
+ },
+ "semaphores": {
+  "spraying": "optimal",
+  "workability": "caution",
+  "irrigation": "satisfied"
+ },
+ "metrics": {}
+}

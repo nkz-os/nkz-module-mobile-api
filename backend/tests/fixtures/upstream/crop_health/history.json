@@ -1,0 +1,12 @@
+{
+ "points": [
+  {
+   "date": "2026-10-31",
+   "cwsi": 0.28,
+   "mds": null,
+   "balance": -12.0,
+   "composite": 0.3,
+   "severity": "LOW"
+  }
+ ]
+}

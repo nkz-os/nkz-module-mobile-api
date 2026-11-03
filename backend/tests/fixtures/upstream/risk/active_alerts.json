@@ -1,0 +1,26 @@
+{
+ "alerts": [
+  {
+   "id": "urn:ngsi-ld:Alert:acmefarm:crop_stress:p1",
+   "type": "Alert",
+   "category": {
+    "type": "Property",
+    "value": "crop"
+   },
+   "alertType": {
+    "type": "Property",
+    "value": "crop_stress"
+   },
+   "severity": {
+    "type": "Property",
+    "value": "high"
+   },
+   "status": {
+    "type": "Property",
+    "value": "active"
+   },
+   "refEntityName": "Norte"
+  }
+ ],
+ "count": 1
+}
