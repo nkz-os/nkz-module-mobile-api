@@ -22,10 +22,18 @@ spec:
         module: mobile-api
         nkz-os.org/orion-client: "true"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000  # numeric: the image user is named, which the kubelet cannot verify
       containers:
         - name: backend
           image: ghcr.io/nkz-os/nkz-module-mobile-api/mobile-api-backend:YOUR_IMAGE_TAG
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
           ports:
             - name: http
               containerPort: 8000

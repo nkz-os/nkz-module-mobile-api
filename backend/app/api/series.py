@@ -43,11 +43,11 @@ async def get_series(request: Request, parcel_id: str, metric: str | None = Quer
     if cached is not None:
         return cached
 
-    exists = await orion.parcel_exists(app.orion(ctx), urn)
+    ident = from_request(request, ctx)
+    exists = await orion.parcel_exists(app.orion(ctx), urn, ident.request_id)
     if exists.status == "empty":
         return JSONResponse(status_code=404, content={"error": "parcel_not_found"})
 
-    ident = from_request(request, ctx)
     http = app.state.http
     end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=n - 1)  # inclusive: at most n points

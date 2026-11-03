@@ -16,5 +16,6 @@ async def active_alerts(http: httpx.AsyncClient, settings: Settings, ident: Iden
         lambda: http.get(url, params={"status": "active", "limit": 200}, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "alerts")

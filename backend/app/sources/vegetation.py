@@ -18,5 +18,6 @@ async def ndvi_history(http: httpx.AsyncClient, settings: Settings, ident: Ident
         lambda: http.get(url, params={"entity_id": urn, "index_type": "NDVI", "start": start.isoformat(), "end": end.isoformat()}, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "points")

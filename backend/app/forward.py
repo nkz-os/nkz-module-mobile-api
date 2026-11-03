@@ -1,4 +1,4 @@
-"""Identity forwarding: the five gateway headers, copied as received."""
+"""Identity forwarding: the five gateway headers plus the request id, copied as received."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -7,6 +7,7 @@ from fastapi import Request
 
 FORWARDED_HEADERS = (
     "Authorization", "X-Tenant-ID", "X-User-ID", "X-User-Roles", "X-Auth-Signature",
+    "X-Request-ID",
 )
 
 
@@ -14,6 +15,10 @@ FORWARDED_HEADERS = (
 class Identity:
     headers: dict[str, str]
     tenant_id: str
+
+    @property
+    def request_id(self) -> str:
+        return self.headers.get("X-Request-ID", "")
 
     def __repr__(self) -> str:
         return f"Identity(tenant={self.tenant_id}, headers=<{len(self.headers)} keys>)"

@@ -16,6 +16,7 @@ async def summary(http: httpx.AsyncClient, settings: Settings, ident: Identity, 
         lambda: http.get(url, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "horizons")
 
@@ -27,5 +28,6 @@ async def lab_analyses(http: httpx.AsyncClient, settings: Settings, ident: Ident
         lambda: http.get(url, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "analyses")

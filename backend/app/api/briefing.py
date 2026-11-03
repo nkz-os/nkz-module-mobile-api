@@ -41,7 +41,7 @@ async def get_briefing(request: Request, parcel_id: str, lang: str | None = Quer
     http = app.state.http
     client = app.orion(ctx)
 
-    exists = await orion.parcel_exists(client, urn)
+    exists = await orion.parcel_exists(client, urn, ident.request_id)
     if exists.status == "empty":
         return JSONResponse(status_code=404, content={"error": "parcel_not_found"})
     name = None
@@ -52,7 +52,7 @@ async def get_briefing(request: Request, parcel_id: str, lang: str | None = Quer
     short = to_short(urn)
     res = await gather_with_budget(
         settings.request_budget_s,
-        crop=orion.crop(tenant, urn, client),
+        crop=orion.crop(tenant, urn, client, ident.request_id),
         latest=crop_health.latest(http, settings, ident, short),
         diseases=crop_health.diseases_active(http, settings, ident, short),
         phenology=crop_health.phenology(http, settings, ident, urn),

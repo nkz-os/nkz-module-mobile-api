@@ -15,34 +15,35 @@ from .base import SourceResult
 logger = logging.getLogger(__name__)
 
 
-def _log(name: str, tenant: str, urn: str, status: str) -> None:
-    logger.warning("source %s status=%s tenant=%s urn=%s", name, status, tenant, urn)
+def _log(name: str, tenant: str, urn: str, status: str, rid: str = "") -> None:
+    logger.warning("source %s status=%s tenant=%s urn=%s rid=%s", name, status, tenant, urn, rid)
 
 
-async def _guard(name: str, tenant: str, urn: str, aw: Awaitable[SourceResult]) -> SourceResult:
+async def _guard(name: str, tenant: str, urn: str, aw: Awaitable[SourceResult],
+                 rid: str = "") -> SourceResult:
     """Run a source coroutine under the source timeout; nothing escapes."""
     try:
         return await asyncio.wait_for(aw, get_settings().source_timeout_s)
     except (asyncio.TimeoutError, httpx.TimeoutException):
-        _log(name, tenant, urn, "timeout")
+        _log(name, tenant, urn, "timeout", rid)
         return SourceResult("timeout")
     except httpx.HTTPStatusError as exc:
         if exc.response is not None and exc.response.status_code == 404:
-            _log(name, tenant, urn, "empty")
+            _log(name, tenant, urn, "empty", rid)
             return SourceResult("empty")
-        _log(name, tenant, urn, "failed")
+        _log(name, tenant, urn, "failed", rid)
         return SourceResult("failed", error=type(exc).__name__)
     except Exception as exc:  # noqa: BLE001 - boundary: nothing may escape
-        _log(name, tenant, urn, "failed")
+        _log(name, tenant, urn, "failed", rid)
         return SourceResult("failed", error=type(exc).__name__)
 
 
-async def parcel_exists(client: OrionClient, urn: str) -> SourceResult:
+async def parcel_exists(client: OrionClient, urn: str, rid: str = "") -> SourceResult:
     async def run() -> SourceResult:
         ent = await client.get_entity(urn, options="keyValues")
         return SourceResult("ok", data=ent)
 
-    return await _guard("orion.parcel", client.tenant_id, urn, run())
+    return await _guard("orion.parcel", client.tenant_id, urn, run(), rid)
 
 
 async def _variety(client: OrionClient, crop_id: str) -> str | None:
@@ -57,18 +58,18 @@ async def _variety(client: OrionClient, crop_id: str) -> str | None:
     return v if isinstance(v, str) and v else None
 
 
-async def crop(tenant_id: str, urn: str, client: OrionClient) -> SourceResult:
+async def crop(tenant_id: str, urn: str, client: OrionClient, rid: str = "") -> SourceResult:
     async def run() -> SourceResult:
         timeline = await fetch_crop_timeline(tenant_id, urn)
         if timeline is None:
-            _log("orion.crop", tenant_id, urn, "failed")
+            _log("orion.crop", tenant_id, urn, "failed", rid)
             return SourceResult("failed", error="timeline")
         current = timeline.get("current") or {}
         crop_id = current.get("crop_id")
         variety = await _variety(client, crop_id) if crop_id else None
         return SourceResult("ok", data={"timeline": timeline, "variety": variety})
 
-    return await _guard("orion.crop", tenant_id, urn, run())
+    return await _guard("orion.crop", tenant_id, urn, run(), rid)
 
 
 def _iso_z(dt: datetime) -> str:
@@ -80,7 +81,8 @@ def _iso_z(dt: datetime) -> str:
 _PHOTO_ROW_CAP = 500
 
 
-async def photos(client: OrionClient, urn: str, since: datetime | None, limit: int) -> SourceResult:
+async def photos(client: OrionClient, urn: str, since: datetime | None, limit: int,
+                 rid: str = "") -> SourceResult:
     async def run() -> SourceResult:
         # `;imageUrl` is an attribute-existence term: daily weather records for the
         # same parcel carry no image and must not crowd the photos out of the page.
@@ -103,4 +105,4 @@ async def photos(client: OrionClient, urn: str, since: datetime | None, limit: i
         found.sort(key=lambda e: str(e.get("dateObserved") or ""), reverse=True)
         return SourceResult("ok", data=found[:limit])
 
-    return await _guard("orion.photos", client.tenant_id, urn, run())
+    return await _guard("orion.photos", client.tenant_id, urn, run(), rid)

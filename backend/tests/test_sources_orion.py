@@ -153,3 +153,10 @@ async def test_photos_500_failed(respx_mock, oc):
     respx_mock.get(ENT).mock(return_value=httpx.Response(500))
     res = await orion.photos(oc, URN, None, 5)
     assert res.status == "failed" and res.error == "HTTPStatusError"
+
+
+async def test_orion_log_carries_request_id(respx_mock, oc, caplog):
+    respx_mock.get(f"{ENT}/{URN}").mock(return_value=httpx.Response(500))
+    caplog.set_level("WARNING")
+    await orion.parcel_exists(oc, URN, rid="rid-42")
+    assert "rid=rid-42" in caplog.text

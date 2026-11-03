@@ -3,7 +3,8 @@
 Backend-only module (FastAPI on `nkz-platform-sdk`) that composes existing platform APIs into
 compact, app-ready responses for the mobile app. It owns no data and has no database.
 
-Response schemas and rules: the phase-1 contract document in the platform's internal docs (section 2).
+The contract is `backend/app/schemas.py` (the response models are the source of truth).
+Design notes: the phase-1 contract document in the platform's internal docs.
 
 ## Endpoints (prefix `/api/mobile`, gateway-authenticated)
 
@@ -32,6 +33,8 @@ A failing source degrades to a per-source status, never a 5xx.
 | `VEGETATION_URL` | in-cluster service | Vegetation source |
 | `ORION_LD_URL` | SDK default | Context broker (parcel existence) |
 | `ALLOWED_ORIGINS` | SDK default | CORS allowlist |
+| `SOURCE_TIMEOUT_S` | `5` | Per-source deadline (seconds) |
+| `SOURCE_TIMEOUT_PARCELS_S` | `10` | Deadline for the crop-health parcel list (seconds) |
 | `DEFAULT_LANG` | `es` | Language when `lang` is omitted |
 
 ## Local run and tests

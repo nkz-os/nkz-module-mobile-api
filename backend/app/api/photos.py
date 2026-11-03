@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from ..auth import identity
 from .errors import bad_request
 from ..compose._util import _num, _str
+from ..forward import from_request
 from ..ids import is_valid, to_urn
 from ..schemas import Photo, PhotosV1
 from ..sources import orion
@@ -62,10 +63,11 @@ async def get_photos(request: Request, parcel_id: str, since: str | None = Query
             return bad_request("invalid_since")
     urn = to_urn(parcel_id)
     client = request.app.orion(ctx)
-    exists = await orion.parcel_exists(client, urn)
+    rid = from_request(request, ctx).request_id
+    exists = await orion.parcel_exists(client, urn, rid)
     if exists.status == "empty":
         return JSONResponse(status_code=404, content={"error": "parcel_not_found"})
-    res = await orion.photos(client, urn, since_dt, n)
+    res = await orion.photos(client, urn, since_dt, n, rid)
     rows = res.data if res.status == "ok" and isinstance(res.data, list) else []
     photos = [p for p in (_photo(e) for e in rows if isinstance(e, dict)) if p]
     logger.info("photos tenant=%s urn=%s n=%d source=%s", ctx.tenant_id, urn, len(photos), res.status)

@@ -18,6 +18,7 @@ async def agro_status(http: httpx.AsyncClient, settings: Settings, ident: Identi
         lambda: http.get(url, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return res
 
@@ -29,6 +30,7 @@ async def forecast(http: httpx.AsyncClient, settings: Settings, ident: Identity,
         lambda: http.get(url, params={"days": days}, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "forecast")
 
@@ -40,6 +42,7 @@ async def parcel_alerts(http: httpx.AsyncClient, settings: Settings, ident: Iden
         lambda: http.get(url, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "alerts")
 
@@ -51,6 +54,7 @@ async def tenant_alerts(http: httpx.AsyncClient, settings: Settings, ident: Iden
         lambda: http.get(url, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "alerts")
 
@@ -62,5 +66,6 @@ async def daily(http: httpx.AsyncClient, settings: Settings, ident: Identity, ur
         lambda: http.get(url, params={"start": start.isoformat(), "end": end.isoformat(), "fill": "open_meteo"}, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "days")

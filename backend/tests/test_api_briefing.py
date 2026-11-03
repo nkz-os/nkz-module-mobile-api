@@ -176,3 +176,10 @@ def test_degraded_briefing_not_cached(client, auth_headers, upstream):
     n = total_calls(upstream)
     client.get(f"{PATH}/p1", headers=auth_headers)
     assert total_calls(upstream) == n  # the healthy response is cached
+
+
+def test_request_id_forwarded_to_every_source(client, auth_headers, upstream):
+    r = client.get(f"{PATH}/p1", headers={**auth_headers, "X-Request-ID": "rid-7"})
+    assert r.status_code == 200
+    http_routes = [v for k, v in upstream.items() if k != "orion"]
+    assert all(rt.calls[0].request.headers["X-Request-ID"] == "rid-7" for rt in http_routes)

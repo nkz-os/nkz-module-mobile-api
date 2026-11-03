@@ -16,5 +16,6 @@ async def operations(http: httpx.AsyncClient, settings: Settings, ident: Identit
         lambda: http.get(url, params={"parcel_id": urn, "limit": limit}, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "operations")

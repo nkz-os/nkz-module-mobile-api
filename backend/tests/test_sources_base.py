@@ -95,6 +95,15 @@ async def test_log_has_no_secrets(caplog):
     assert "topsecret" not in caplog.text
 
 
+async def test_log_carries_request_id_only(caplog):
+    async def boom():
+        raise ValueError("x")
+
+    caplog.set_level("WARNING")
+    await call("src", boom, timeout_s=1, tenant="acmefarm", rid="rid-42")
+    assert "rid=rid-42" in caplog.text
+
+
 async def test_gather_with_budget():
     async def slow():
         await asyncio.sleep(5)

@@ -24,8 +24,8 @@ def client(settings: Settings) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=settings.source_timeout_s)
 
 
-def _log(name: str, tenant: str, status: str, code: Any) -> None:
-    logger.warning("source %s status=%s tenant=%s code=%s", name, status, tenant, code)
+def _log(name: str, tenant: str, status: str, code: Any, rid: str = "") -> None:
+    logger.warning("source %s status=%s tenant=%s code=%s rid=%s", name, status, tenant, code, rid)
 
 
 async def call(
@@ -35,30 +35,31 @@ async def call(
     timeout_s: float,
     empty_on: tuple[int, ...] = (404,),
     tenant: str = "",
+    rid: str = "",
 ) -> SourceResult:
     try:
         resp = await asyncio.wait_for(coro_factory(), timeout_s)
     except (httpx.TimeoutException, asyncio.TimeoutError):
-        _log(name, tenant, "timeout", "-")
+        _log(name, tenant, "timeout", "-", rid)
         return SourceResult("timeout")
     except Exception as exc:  # noqa: BLE001 - boundary: nothing may escape
-        _log(name, tenant, "failed", type(exc).__name__)
+        _log(name, tenant, "failed", type(exc).__name__, rid)
         return SourceResult("failed", error=type(exc).__name__)
 
     code = resp.status_code
     if code in empty_on:
-        _log(name, tenant, "empty", code)
+        _log(name, tenant, "empty", code, rid)
         return SourceResult("empty")
     if code in (401, 403):
-        _log(name, tenant, "failed", code)
+        _log(name, tenant, "failed", code, rid)
         return SourceResult("failed", error="auth")
     if code >= 400:
-        _log(name, tenant, "failed", code)
+        _log(name, tenant, "failed", code, rid)
         return SourceResult("failed", error=f"http_{code}")
     try:
         return SourceResult("ok", data=resp.json())
     except ValueError:
-        _log(name, tenant, "failed", code)
+        _log(name, tenant, "failed", code, rid)
         return SourceResult("failed", error="bad_json")
 
 

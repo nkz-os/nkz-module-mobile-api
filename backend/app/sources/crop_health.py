@@ -16,6 +16,7 @@ async def latest(http: httpx.AsyncClient, settings: Settings, ident: Identity, p
         lambda: http.get(url, params={"parcelId": parcel_short}, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "assessments")
 
@@ -27,6 +28,7 @@ async def parcels(http: httpx.AsyncClient, settings: Settings, ident: Identity) 
         lambda: http.get(url, headers=ident.headers),
         timeout_s=settings.source_timeout_parcels_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "parcels")
 
@@ -38,6 +40,7 @@ async def diseases_active(http: httpx.AsyncClient, settings: Settings, ident: Id
         lambda: http.get(url, params={"parcelId": parcel_short}, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "risks")
 
@@ -49,6 +52,7 @@ async def phenology(http: httpx.AsyncClient, settings: Settings, ident: Identity
         lambda: http.get(url, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return res
 
@@ -60,6 +64,7 @@ async def history(http: httpx.AsyncClient, settings: Settings, ident: Identity, 
         lambda: http.get(url, params={"parcelId": parcel_short, "days": days}, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return mark_empty(res, "points")
 
@@ -71,5 +76,6 @@ async def yield_forecast(http: httpx.AsyncClient, settings: Settings, ident: Ide
         lambda: http.get(url, headers=ident.headers),
         timeout_s=settings.source_timeout_s,
         tenant=ident.tenant_id,
+        rid=ident.request_id,
     )
     return res
