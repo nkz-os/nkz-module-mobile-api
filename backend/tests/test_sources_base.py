@@ -119,13 +119,6 @@ async def test_gather_with_budget():
     assert out["a"] == SourceResult("timeout", None, "budget")
 
 
-async def test_client_uses_source_timeout(settings_env):
-    from app.config import get_settings
-
-    async with base.client(get_settings()) as c:
-        assert c.timeout.read == get_settings().source_timeout_s
-
-
 async def test_budget_expiry_awaits_cancelled_tasks():
     flag = []
 
@@ -170,3 +163,17 @@ def test_lifespan_opens_and_closes_http_client(settings_env):
         assert isinstance(http, httpx.AsyncClient)
         assert not http.is_closed
     assert http.is_closed
+
+
+async def test_shared_client_timeout_covers_the_request_budget(settings_env):
+    """The per-source wait_for must govern; the shared httpx timeout must not cut a 10 s source at 5 s."""
+    from app.config import get_settings
+    from app.sources import base
+
+    settings = get_settings()
+    http = base.client(settings)
+    try:
+        assert http.timeout.read == settings.request_budget_s
+        assert settings.request_budget_s >= settings.source_timeout_parcels_s
+    finally:
+        await http.aclose()

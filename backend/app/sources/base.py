@@ -21,7 +21,9 @@ class SourceResult:
 
 
 def client(settings: Settings) -> httpx.AsyncClient:
-    return httpx.AsyncClient(timeout=settings.source_timeout_s)
+    # The per-source asyncio.wait_for governs each call; the transport timeout only
+    # needs to cover the whole request budget (a 10 s source must not be cut at 5 s).
+    return httpx.AsyncClient(timeout=settings.request_budget_s)
 
 
 def _log(name: str, tenant: str, status: str, code: Any, rid: str = "") -> None:
