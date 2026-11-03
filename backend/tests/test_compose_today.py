@@ -172,3 +172,9 @@ def test_sources_and_failed_inputs():
 def test_resolved_risk_alert_skipped():
     out = build(risks=[risk("a1", status={"type": "Property", "value": "resolved"})])
     assert out.cards == []
+
+
+def test_severe_weather_sorts_before_silent_risk_alerts():
+    out = build(risks=[risk("r-high", "high", "crop"), risk("r-med", "medium", "crop")],
+                wxs=[wx(1, "severe")])
+    assert [c.id for c in out.cards] == ["w1", "r-high", "r-med"]
