@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "photos": [
+    {"id": "urn:ngsi-ld:AgriParcelRecord:r1", "imageUrl": "/api/field-images/acmefarm/r1.jpg", "capturedAt": "2026-11-02T10:30:00Z",
+     "note": "Leaf spots", "tag": "disease", "location": [-1.64, 42.81], "accuracyM": 4.5},
+    {"id": "urn:ngsi-ld:AgriParcelRecord:r2", "imageUrl": "/api/field-images/acmefarm/r2.jpg", "capturedAt": "2026-10-30T09:00:00Z",
+     "note": null, "tag": null, "location": null, "accuracyM": null}
+  ]
+}

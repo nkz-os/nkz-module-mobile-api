@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "metric": "water_balance",
+  "unit": "mm",
+  "days": 7,
+  "points": [
+    {"date": "2026-10-28", "value": 41.5},
+    {"date": "2026-10-29", "value": null},
+    {"date": "2026-10-30", "value": 38.0}
+  ],
+  "source": "ok"
+}

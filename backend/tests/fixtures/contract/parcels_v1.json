@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-03T08:00:00Z",
+  "sources": {"cropHealth": "ok"},
+  "parcels": [
+    {"parcelId": "urn:ngsi-ld:AgriParcel:p1", "parcelName": "Parcela Norte", "areaHa": 4.2, "cropName": "Olivo", "stage": "BBCH-85",
+     "overall": {"level": "warn", "messageKey": "state.unknown", "params": {}}, "assessedAt": "2026-11-03T02:00:00Z", "freshness": "fresh"},
+    {"parcelId": "urn:ngsi-ld:AgriParcel:p2", "parcelName": "Parcela Sur", "areaHa": null, "cropName": null, "stage": null,
+     "overall": {"level": "unknown", "messageKey": "state.unknown", "params": {}}, "assessedAt": null, "freshness": "none"}
+  ]
+}

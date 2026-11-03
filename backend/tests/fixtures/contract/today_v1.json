@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-03T08:00:00Z",
+  "sources": {"cropHealth": "ok", "risk": "ok", "weather": "failed"},
+  "cards": [
+    {"id": "card-1", "kind": "alert", "urgency": "vibrate", "parcelId": "urn:ngsi-ld:AgriParcel:p1", "parcelName": "Parcela Norte",
+     "messageKey": "card.alert.disease", "params": {"disease": "mildew"},
+     "plain": {"title": "Treat mildew", "body": "High mildew risk."},
+     "action": {"kind": "open_parcel", "params": {"parcelId": "urn:ngsi-ld:AgriParcel:p1"}}, "at": "2026-11-03T06:00:00Z"},
+    {"id": "card-2", "kind": "job", "urgency": "silent", "parcelId": null, "parcelName": null,
+     "messageKey": "card.job.irrigate", "params": {}, "plain": null,
+     "action": {"kind": "none", "params": {}}, "at": "2026-11-03T07:00:00Z"}
+  ],
+  "summary": {"alerts": 1, "jobsToday": 1, "surprises": 0, "noData": 2}
+}

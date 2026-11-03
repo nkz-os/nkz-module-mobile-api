@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "parcelId": "urn:ngsi-ld:AgriParcel:p1",
+  "parcelName": "Parcela Norte",
+  "generatedAt": "2026-11-03T08:00:00Z",
+  "lang": "es",
+  "sources": {"cropHealth": "ok", "weather": "ok", "soil": "ok", "fieldOps": "empty", "risk": "ok", "forecast": "timeout"},
+  "crop": {"status": "active", "species": "Olea europaea", "name": "Olivo", "variety": "Arbequina",
+           "sowingDate": "2026-03-15", "provenance": "declared", "daysSinceSowing": 233,
+           "plannedCrop": {"species": "Triticum aestivum", "name": "Trigo", "sowingDate": "2026-11-20"}},
+  "campaign": {"stage": "BBCH-85", "progressPct": 62.5, "deviation": -1.5, "gddAccumulated": 1834.2, "dataFidelity": "parcel_weather"},
+  "weather": {
+    "now": {"observedAt": "2026-11-03T07:00:00Z", "tempC": 11.4, "humidityPct": 78.0, "windMs": 2.1, "precipMm": 0.0},
+    "semaphores": {"spraying": "optimal", "workability": "caution", "irrigation": "unknown"},
+    "days": [
+      {"date": "2026-11-03", "tminC": 6.0, "tmaxC": 16.5, "precipMm": 0.0, "precipProbPct": 5.0, "code": 1, "codeKey": "clear"},
+      {"date": "2026-11-04", "tminC": 7.2, "tmaxC": 15.0, "precipMm": 3.4, "precipProbPct": 70.0, "code": 61, "codeKey": "rain"},
+      {"date": "2026-11-05", "tminC": 8.0, "tmaxC": 14.1, "precipMm": 8.0, "precipProbPct": 90.0, "code": 95, "codeKey": "thunder"}
+    ],
+    "alerts": [{"severity": "moderate", "headline": "Heavy rain expected", "validFrom": "2026-11-05T00:00:00Z", "validTo": "2026-11-05T18:00:00Z"}]
+  },
+  "soil": {"textureClass": "clay loam",
+           "topsoil": {"depthFrom": 0, "depthTo": 30, "sandPct": 30.0, "clayPct": 35.0, "siltPct": 35.0, "organicMatterPct": 2.1},
+           "moisture": {"level": "moderate", "ratio": 0.45},
+           "lastLabAnalysis": {"date": "2026-02-10", "reference": "LAB-001"},
+           "lastOperation": {"type": "tillage", "date": "2026-10-20", "status": "completed"}},
+  "state": {"water": {"level": "warn", "messageKey": "state.water.irrigate_soon", "params": {}},
+            "plant": {"level": "bad", "messageKey": "state.plant.stressed", "params": {"stressor": "drought"}},
+            "risks": {"level": "ok", "messageKey": "state.risks.ok", "params": {}},
+            "overall": {"level": "bad", "messageKey": "state.plant.stressed", "params": {"stressor": "drought"}},
+            "assessedAt": "2026-11-03T02:00:00Z", "freshness": "fresh"},
+  "forecast": {"yield": {"value": 3200.0, "unit": "kg/ha", "low": 2800.0, "high": 3600.0},
+               "harvestDate": "2026-11-28", "computedAt": "2026-11-02T02:00:00Z"},
+  "nextJob": {"kind": "irrigate", "when": "today", "detail": {"mm": 12}},
+  "surprise": {"code": "frost_risk", "detail": {"minTempC": -1.0}},
+  "operations": [{"id": "op-1", "type": "tillage", "date": "2026-10-20", "status": "completed"}]
+}
