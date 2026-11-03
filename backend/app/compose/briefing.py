@@ -145,11 +145,12 @@ def _weather(agro: SourceResult, forecast3: SourceResult, wx_alerts: SourceResul
             continue
         code = r.get("weather_code")
         vals = (_str(r.get("date")), _num(r.get("temp_min")), _num(r.get("temp_max")),
-                _num(r.get("precip_mm")), _num(r.get("precip_probability")))
+                _num(r.get("precip_mm")))
+        prob = _num(r.get("precip_probability"))
         if any(v is None for v in vals) or isinstance(code, bool) or not isinstance(code, int):
             continue  # schema requires every value: drop the row, never invent
         days.append(WeatherDay(date=vals[0], tminC=vals[1], tmaxC=vals[2], precipMm=vals[3],
-                               precipProbPct=vals[4], code=code, codeKey=wmo.code_key(code)))
+                               precipProbPct=prob, code=code, codeKey=wmo.code_key(code)))
 
     alerts: list[WeatherAlert] = []
     arows = _data(wx_alerts).get("alerts")
@@ -172,12 +173,12 @@ def _topsoil(soil_summary: SourceResult) -> Topsoil | None:
     h = hz[0] if isinstance(hz, list) and hz and isinstance(hz[0], dict) else None
     if h is None:
         return None
-    oc = _num(h.get("organicCarbon"))
-    vals = [_num(h.get(k)) for k in ("depthFrom", "depthTo", "sand", "clay", "silt")]
-    if oc is None or any(v is None for v in vals):
+    d_from, d_to = _num(h.get("depthFrom")), _num(h.get("depthTo"))
+    sand, clay, silt, oc = (_num(h.get(k)) for k in ("sand", "clay", "silt", "organicCarbon"))
+    if d_from is None or d_to is None or all(v is None for v in (sand, clay, silt, oc)):
         return None
-    return Topsoil(depthFrom=vals[0], depthTo=vals[1], sandPct=vals[2], clayPct=vals[3],
-                   siltPct=vals[4], organicMatterPct=round(oc * 1.724, 3))
+    return Topsoil(depthFrom=d_from, depthTo=d_to, sandPct=sand, clayPct=clay, siltPct=silt,
+                   organicMatterPct=round(oc * 1.724, 3) if oc is not None else None)
 
 
 def _texture(soil_summary: SourceResult, latest: SourceResult) -> str | None:
@@ -268,16 +269,24 @@ def _state(latest: SourceResult, diseases: SourceResult, risk_alerts: SourceResu
 
 def _forecast(yield_fc: SourceResult) -> YieldForecast | None:
     d = _data(yield_fc)
-    est = d.get("estimates")
-    if d.get("status") != "done" or not isinstance(est, list) or not est or not isinstance(est[0], dict):
+    est = [e for e in d.get("estimates") or [] if isinstance(e, dict)] \
+        if isinstance(d.get("estimates"), list) else []
+    if d.get("status") != "done" or not est:
         return None
-    e = est[0]
-    value, computed = _num(e.get("value")), _str(d.get("computed_at"))
+    e = next((x for x in est if x.get("metric") == "yield_t_ha"), None)
+    if e is None:
+        e = next((x for x in est if "metric" not in x), None)
+    if e is None:
+        return None
+    value = _num(e.get("p50"))
+    if value is None:
+        value = _num(e.get("value"))
+    computed = _str(d.get("computed_at"))
     if value is None or computed is None:
         return None
     return YieldForecast(
-        yield_=YieldValue(value=value, unit=_str(e.get("unit")) or "t/ha",
-                          low=_num(e.get("low")), high=_num(e.get("high"))),
+        yield_=YieldValue(value=value, unit="t/ha", low=_num(e.get("p10", e.get("low"))),
+                          high=_num(e.get("p90", e.get("high")))),
         harvestDate=_str(d.get("harvestDate")) or _str(e.get("harvestDate")),
         computedAt=computed)
 
@@ -303,9 +312,8 @@ def build(*, parcel_urn: str, parcel_name: str | None, lang: str, now: datetime,
           wx_alerts: SourceResult, soil_summary: SourceResult, labs: SourceResult,
           ops: SourceResult, risk_alerts: SourceResult, yield_fc: SourceResult) -> BriefingV1:
     operations = _ops(ops)
-    # BriefingV1.parcelName is a required str: fall back to names sources carry, else "".
     name = (parcel_name or _str((_assessment(latest) or {}).get("parcelName"))
-            or _str(_data(agro).get("parcel_name")) or "")
+            or _str(_data(agro).get("parcel_name")))
     return BriefingV1(
         parcelId=parcel_urn,
         parcelName=name,

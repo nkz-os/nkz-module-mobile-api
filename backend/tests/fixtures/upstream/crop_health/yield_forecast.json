@@ -2,8 +2,13 @@
  "status": "done",
  "estimates": [
   {
-   "kind": "yield",
-   "p50": 5200
+   "metric": "yield_t_ha",
+   "p50": 5.2,
+   "p10": 4.1,
+   "p90": 6.3,
+   "status": "validated",
+   "scope": "parcel",
+   "gap_corrected": false
   }
  ],
  "season": "2025-26",

@@ -51,7 +51,8 @@ def test_full():
     assert st.risks.params == {"disease": "crop_stress"}  # only this parcel's risk alert counts
     assert st.overall.level == "bad" and st.freshness == "fresh"
     assert st.assessedAt == "2026-11-02T04:00:00Z"
-    assert b.forecast.yield_.value == 3200.0 and b.forecast.yield_.unit == "kg/ha"
+    assert (b.forecast.yield_.value, b.forecast.yield_.low, b.forecast.yield_.high) == (3.2, 2.8, 3.6)
+    assert b.forecast.yield_.unit == "t/ha"
     assert b.forecast.harvestDate == "2027-06-20" and b.forecast.computedAt == "2026-11-02T02:00:00Z"
     assert b.nextJob.kind == "irrigate" and b.surprise.code == "frost_risk"
     dumped = b.model_dump(by_alias=True)
@@ -152,3 +153,32 @@ def test_parcel_name_fallback_and_ref_forms():
     assert run(risk_alerts=alerts).state.risks.level == "bad"
     obj = {"alerts": [{"alertType": "frost", "severity": "high", "refEntity": {"object": URN}}]}
     assert run(risk_alerts=obj).state.risks.level == "bad"
+
+
+def test_parcel_name_none_when_nowhere():
+    assert run(name=None, latest={"assessments": []}, agro={"weather": {}}).parcelName is None
+
+
+def test_day_with_null_precip_prob_kept():
+    rows = [{"date": "2026-11-03", "temp_max": 1, "temp_min": 0, "weather_code": 1,
+             "precip_mm": 0, "precip_probability": None}]
+    d = run(forecast3={"forecast": rows}).weather.days
+    assert len(d) == 1 and d[0].precipProbPct is None
+    rows[0]["weather_code"] = None
+    assert run(forecast3={"forecast": rows}).weather.days == []
+
+
+def test_topsoil_with_only_sand():
+    b = run(soil_summary={"horizons": [{"depthFrom": 0, "depthTo": 30, "sand": 42.0}]})
+    t = b.soil.topsoil
+    assert t.sandPct == 42.0 and t.clayPct is None and t.siltPct is None and t.organicMatterPct is None
+    assert run(soil_summary={"horizons": [{"depthFrom": 0, "depthTo": 30}]}).soil.topsoil is None
+
+
+def test_forecast_picks_yield_metric_and_legacy_value():
+    est = [{"metric": "other", "p50": 9}, {"metric": "yield_t_ha", "p50": 5.2, "p10": 4.1, "p90": 6.3}]
+    f = run(yield_fc={"status": "done", "computed_at": "t", "estimates": est}).forecast
+    assert (f.yield_.value, f.yield_.low, f.yield_.high, f.harvestDate) == (5.2, 4.1, 6.3, None)
+    f = run(yield_fc={"status": "done", "computed_at": "t",
+                      "estimates": [{"value": 5.0, "harvestDate": "2027-01-01"}]}).forecast
+    assert f.yield_.value == 5.0 and f.harvestDate == "2027-01-01"

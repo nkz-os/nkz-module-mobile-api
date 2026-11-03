@@ -89,7 +89,7 @@ class WeatherDay(_Model):
     tminC: float
     tmaxC: float
     precipMm: float
-    precipProbPct: float
+    precipProbPct: float | None
     code: int
     codeKey: CodeKey
 
@@ -111,10 +111,10 @@ class Weather(_Model):
 class Topsoil(_Model):
     depthFrom: float
     depthTo: float
-    sandPct: float
-    clayPct: float
-    siltPct: float
-    organicMatterPct: float
+    sandPct: float | None
+    clayPct: float | None
+    siltPct: float | None
+    organicMatterPct: float | None
 
 
 class SoilMoisture(_Model):
@@ -188,7 +188,7 @@ class Surprise(_Model):
 class BriefingV1(_Model):
     version: Literal[1] = 1
     parcelId: str
-    parcelName: str
+    parcelName: str | None
     generatedAt: str
     lang: Literal["es", "eu", "en"]
     sources: BriefingSources

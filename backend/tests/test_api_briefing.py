@@ -105,6 +105,19 @@ def test_orion_500_degrades_not_404(client, auth_headers, upstream, monkeypatch)
     assert body["weather"] is not None
 
 
+def test_parcel_name_null_when_no_source_has_it(client, auth_headers, upstream, monkeypatch):
+    upstream["orion"].mock(return_value=httpx.Response(500))
+    upstream["latest"].mock(return_value=httpx.Response(404))
+    upstream["agro"].mock(return_value=httpx.Response(404))
+    r = client.get(f"{PATH}/p1", headers=auth_headers)
+    assert r.status_code == 200 and r.json()["parcelName"] is None
+
+
+def test_forecast_from_real_estimate_shape(client, auth_headers, upstream):
+    f = client.get(f"{PATH}/p1", headers=auth_headers).json()["forecast"]
+    assert f["yield"] == {"value": 5.2, "unit": "t/ha", "low": 4.1, "high": 6.3}
+
+
 def test_cached_within_ttl_and_per_tenant(client, auth_headers, upstream, timeline):
     client.get(f"{PATH}/p1", headers=auth_headers)
     n = total_calls(upstream)
