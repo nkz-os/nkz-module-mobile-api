@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from nkz_platform_sdk.module_app import ModuleApp
 
 from .api import briefing as briefing_api
+from .api import parcels as parcels_api
 from .api import today as today_api
 from .auth import ensure_signature_enforced
 from .cache import TTLCache
@@ -33,6 +34,7 @@ def create_app() -> ModuleApp:
     app.state.cache_series = TTLCache(settings.cache_ttl_series_s)
     app.include_router(briefing_api.router, prefix=settings.api_prefix)
     app.include_router(today_api.router, prefix=settings.api_prefix)
+    app.include_router(parcels_api.router, prefix=settings.api_prefix)
     return app
 
 
