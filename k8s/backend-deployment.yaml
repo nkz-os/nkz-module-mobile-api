@@ -1,0 +1,64 @@
+# Reference template. Real values (image digest, config) live in the gitops overlay.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mobile-api-backend
+  namespace: nekazari
+  labels:
+    app: mobile-api-backend
+    component: backend
+    module: mobile-api
+    nkz-os.org/profile: addon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mobile-api-backend
+  template:
+    metadata:
+      labels:
+        app: mobile-api-backend
+        component: backend
+        module: mobile-api
+        nkz-os.org/orion-client: "true"
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/nkz-os/nkz-module-mobile-api/mobile-api-backend:YOUR_IMAGE_TAG
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: mobile-api-config
+                optional: true
+          env:
+            - name: REQUIRE_HMAC_SIGNATURE
+              value: "true"
+            - name: HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
