@@ -15,10 +15,8 @@ def _rec(i, url="/api/field-images/k1", **kw):
             "dateObserved": "2026-10-05T10:00:00Z", **kw}
 
 
-def test_photos_mapping_and_fallback(client, auth_headers, respx_mock):
+def test_photos_mapping(client, auth_headers, respx_mock):
     def handler(request):
-        if request.url.params["q"].startswith("hasAgriParcel"):
-            return httpx.Response(200, json=[])
         return httpx.Response(200, json=[
             _rec(1, note="n", tag="t", accuracy=4.5,
                  location={"type": "Point", "coordinates": [-1.6, 42.8]}),
@@ -39,7 +37,9 @@ def test_photos_mapping_and_fallback(client, auth_headers, respx_mock):
     assert ph[1]["imageUrl"] == "/api/field-images/k2"
     assert ph[1]["note"] is None and ph[1]["location"] is None and ph[1]["accuracyM"] is None
     assert route.calls[0].request.url.params["limit"] == "50"
-    assert URN in route.calls[0].request.url.params["q"]
+    q = route.calls[0].request.url.params["q"]
+    assert q == f'(hasAgriParcel=="{URN}"|refAgriParcel=="{URN}");imageUrl'
+    assert route.call_count == 1  # fewer rows than the page size: no second page
 
 
 def test_photos_since_and_limit_forwarded(client, auth_headers, respx_mock):
@@ -48,6 +48,27 @@ def test_photos_since_and_limit_forwarded(client, auth_headers, respx_mock):
     assert r.status_code == 200
     p = route.calls[0].request.url.params
     assert p["limit"] == "7" and 'dateObserved>="2026-10-01T00:00:00Z"' in p["q"]
+
+
+def test_photos_paginate_and_cut_newest_first(client, auth_headers, respx_mock):
+    def page(request):
+        off = int(request.url.params["offset"])
+        assert request.url.params["limit"] == "2"
+        rows = {0: [_rec(1, dateObserved="2026-10-01T00:00:00Z"), _rec(2, dateObserved="2026-10-03T00:00:00Z")],
+                2: [_rec(3, dateObserved="2026-10-05T00:00:00Z")]}[off]
+        return httpx.Response(200, json=rows)
+    route = respx_mock.get(ENT).mock(side_effect=page)
+    r = client.get(f"{B}/p1/photos?limit=2", headers=auth_headers)
+    assert route.call_count == 2
+    assert [p["id"][-1] for p in r.json()["photos"]] == ["3", "2"]  # newest first, then cut to limit
+
+
+def test_photos_page_cap_500_rows(client, auth_headers, respx_mock):
+    route = respx_mock.get(ENT).mock(side_effect=lambda req: httpx.Response(
+        200, json=[_rec(i) for i in range(200)]))
+    r = client.get(f"{B}/p1/photos?limit=200", headers=auth_headers)
+    assert r.status_code == 200 and len(r.json()["photos"]) == 200
+    assert route.call_count == 3  # 200 + 200 + 200 reaches the 500-row cap
 
 
 @pytest.mark.parametrize("qs", ["limit=0", "limit=201", "limit=x", "since=yesterday"])

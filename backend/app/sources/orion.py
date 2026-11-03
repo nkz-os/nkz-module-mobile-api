@@ -77,23 +77,30 @@ def _iso_z(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+_PHOTO_ROW_CAP = 500
+
+
 async def photos(client: OrionClient, urn: str, since: datetime | None, limit: int) -> SourceResult:
     async def run() -> SourceResult:
+        # `;imageUrl` is an attribute-existence term: daily weather records for the
+        # same parcel carry no image and must not crowd the photos out of the page.
+        q = f'(hasAgriParcel=="{urn}"|refAgriParcel=="{urn}");imageUrl'
+        if since is not None:
+            q += f';dateObserved>="{_iso_z(since)}"'
         found: list[dict[str, Any]] = []
-        for rel in ("hasAgriParcel", "refAgriParcel"):
-            q = f'{rel}=="{urn}"'
-            if since is not None:
-                q += f';dateObserved>="{_iso_z(since)}"'
+        offset = 0
+        while offset < _PHOTO_ROW_CAP:
+            size = min(limit, _PHOTO_ROW_CAP - offset)
             rows = await client.query_entities(
-                type="AgriParcelRecord", q=q, limit=limit, options="keyValues"
+                type="AgriParcelRecord", q=q, limit=size, offset=offset, options="keyValues"
             )
-            if rows:
-                found = rows
+            found.extend(e for e in rows if isinstance(e, dict) and e.get("imageUrl"))
+            if len(rows) < size:
                 break
-        withimg = [e for e in found if isinstance(e, dict) and e.get("imageUrl")]
-        if not withimg:
+            offset += size
+        if not found:
             return SourceResult("empty")
-        withimg.sort(key=lambda e: str(e.get("dateObserved") or ""), reverse=True)
-        return SourceResult("ok", data=withimg)
+        found.sort(key=lambda e: str(e.get("dateObserved") or ""), reverse=True)
+        return SourceResult("ok", data=found[:limit])
 
     return await _guard("orion.photos", client.tenant_id, urn, run())

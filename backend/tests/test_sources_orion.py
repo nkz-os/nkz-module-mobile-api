@@ -89,24 +89,45 @@ async def test_crop_exception_failed(oc, monkeypatch):
     assert res.status == "failed" and res.error == "RuntimeError"
 
 
-async def test_photos_has_then_ref_fallback_sorted(respx_mock, oc):
-    def handler(request):
-        q = request.url.params["q"]
-        if q.startswith("hasAgriParcel"):
-            return httpx.Response(200, json=[])
-        assert q == f'refAgriParcel=="{URN}"'
-        return httpx.Response(200, json=[
-            {"id": "a", "imageUrl": "u1", "dateObserved": "2026-10-01T10:00:00Z"},
-            {"id": "b", "dateObserved": "2026-10-09T10:00:00Z"},
-            {"id": "c", "imageUrl": "u3", "dateObserved": "2026-10-05T10:00:00Z"},
-        ])
-    route = respx_mock.get(ENT).mock(side_effect=handler)
+Q_BASE = f'(hasAgriParcel=="{URN}"|refAgriParcel=="{URN}");imageUrl'
+
+
+async def test_photos_query_requires_image_and_sorts(respx_mock, oc):
+    route = respx_mock.get(ENT).mock(return_value=httpx.Response(200, json=[
+        {"id": "a", "imageUrl": "u1", "dateObserved": "2026-10-01T10:00:00Z"},
+        {"id": "b", "dateObserved": "2026-10-09T10:00:00Z"},
+        {"id": "c", "imageUrl": "u3", "dateObserved": "2026-10-05T10:00:00Z"},
+    ]))
     res = await orion.photos(oc, URN, None, 20)
     assert res.status == "ok"
     assert [e["id"] for e in res.data] == ["c", "a"]
-    assert route.call_count == 2
+    assert route.call_count == 1
     p = route.calls[0].request.url.params
     assert p["type"] == "AgriParcelRecord" and p["limit"] == "20" and p["options"] == "keyValues"
+    assert p["q"] == Q_BASE and p["offset"] == "0"
+
+
+async def test_photos_paginates_then_keeps_newest(respx_mock, oc):
+    pages = {"0": [{"id": "a", "imageUrl": "u", "dateObserved": "2026-10-01T00:00:00Z"},
+                   {"id": "b", "imageUrl": "u", "dateObserved": "2026-10-02T00:00:00Z"}],
+             "2": [{"id": "c", "imageUrl": "u", "dateObserved": "2026-10-09T00:00:00Z"}]}
+    route = respx_mock.get(ENT).mock(side_effect=lambda r: httpx.Response(
+        200, json=pages[r.url.params["offset"]]))
+    res = await orion.photos(oc, URN, None, 2)
+    assert route.call_count == 2
+    assert [e["id"] for e in res.data] == ["c", "b"]
+
+
+async def test_photos_stops_at_500_rows(respx_mock, oc):
+    sizes = []
+
+    def handler(r):
+        sizes.append((r.url.params["offset"], r.url.params["limit"]))
+        n = int(r.url.params["limit"])
+        return httpx.Response(200, json=[{"id": "x", "imageUrl": "u", "dateObserved": "2026-10-01T00:00:00Z"}] * n)
+    respx_mock.get(ENT).mock(side_effect=handler)
+    await orion.photos(oc, URN, None, 200)
+    assert sizes == [("0", "200"), ("200", "200"), ("400", "100")]
 
 
 async def test_photos_since_quoted(respx_mock, oc):
@@ -115,8 +136,7 @@ async def test_photos_since_quoted(respx_mock, oc):
     since = datetime(2026, 10, 1, tzinfo=timezone.utc)
     res = await orion.photos(oc, URN, since, 5)
     assert res.status == "ok"
-    assert route.calls[0].request.url.params["q"] == (
-        f'hasAgriParcel=="{URN}";dateObserved>="2026-10-01T00:00:00Z"')
+    assert route.calls[0].request.url.params["q"] == Q_BASE + ';dateObserved>="2026-10-01T00:00:00Z"'
 
 
 async def test_photos_both_empty(respx_mock, oc):
