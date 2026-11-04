@@ -15,6 +15,7 @@ from ..forward import from_request
 from ..ids import is_valid, to_urn
 from ..schemas import Photo, PhotosV1
 from ..sources import orion
+from ..tags import PHOTO_TAGS, tag_of
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -40,13 +41,14 @@ def _photo(e: dict) -> Photo | None:
     if not pid or not url or not at:
         return None
     return Photo(id=pid, imageUrl=_relative(url), capturedAt=at,
-                 note=_str(e.get("note")), tag=_str(e.get("tag")),
+                 note=_str(e.get("note")), tag=tag_of(e),
                  location=_location(e.get("location")), accuracyM=_num(e.get("accuracy")))
 
 
 @router.get("/parcels/{parcel_id:path}/photos", response_model=PhotosV1)
 async def get_photos(request: Request, parcel_id: str, since: str | None = Query(default=None),
-                     limit: str = Query(default="50"), ctx=identity):
+                     limit: str = Query(default="50"), tag: str | None = Query(default=None),
+                     ctx=identity):
     if not is_valid(parcel_id):
         return bad_request("invalid_parcel_id")
     try:
@@ -61,13 +63,15 @@ async def get_photos(request: Request, parcel_id: str, since: str | None = Query
             since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
         except ValueError:
             return bad_request("invalid_since")
+    if tag is not None and tag not in PHOTO_TAGS:
+        return bad_request("invalid_tag")
     urn = to_urn(parcel_id)
     client = request.app.orion(ctx)
     rid = from_request(request, ctx).request_id
     exists = await orion.parcel_exists(client, urn, rid)
     if exists.status == "empty":
         return JSONResponse(status_code=404, content={"error": "parcel_not_found"})
-    res = await orion.photos(client, urn, since_dt, n, rid)
+    res = await orion.photos(client, urn, since_dt, n, rid, tag)
     rows = res.data if res.status == "ok" and isinstance(res.data, list) else []
     photos = [p for p in (_photo(e) for e in rows if isinstance(e, dict)) if p]
     logger.info("photos tenant=%s urn=%s n=%d source=%s", ctx.tenant_id, urn, len(photos), res.status)

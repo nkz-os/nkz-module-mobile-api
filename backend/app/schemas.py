@@ -281,7 +281,7 @@ class Photo(_Model):
     imageUrl: str
     capturedAt: str
     note: str | None
-    tag: str | None
+    tag: str | None  # pest|disease|weed|damage|crop_status|soil_water|other, or null (app.tags.PHOTO_TAGS)
     location: list[float] | None = Field(default=None, min_length=2, max_length=2)  # [lng, lat]
     accuracyM: float | None
 

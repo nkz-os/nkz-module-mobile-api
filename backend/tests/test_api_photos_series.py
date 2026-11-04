@@ -23,7 +23,7 @@ def _rec(i, url="/api/field-images/k1", **kw):
 def test_photos_mapping(client, auth_headers, respx_mock):
     def handler(request):
         return httpx.Response(200, json=[
-            _rec(1, note="n", tag="t", accuracy=4.5,
+            _rec(1, note="n", category="pest", accuracy=4.5,
                  location={"type": "Point", "coordinates": [-1.6, 42.8]}),
             _rec(2, url="https://files.example.org/api/field-images/k2?x=1"),
             _rec(3, url=None),
@@ -37,7 +37,7 @@ def test_photos_mapping(client, auth_headers, respx_mock):
     ph = body["photos"]
     assert [p["id"] for p in ph] == ["urn:ngsi-ld:AgriParcelRecord:1", "urn:ngsi-ld:AgriParcelRecord:2"]
     assert ph[0] == {"id": "urn:ngsi-ld:AgriParcelRecord:1", "imageUrl": "/api/field-images/k1",
-                     "capturedAt": "2026-10-05T10:00:00Z", "note": "n", "tag": "t",
+                     "capturedAt": "2026-10-05T10:00:00Z", "note": "n", "tag": "pest",
                      "location": [-1.6, 42.8], "accuracyM": 4.5}
     assert ph[1]["imageUrl"] == "/api/field-images/k2"
     assert ph[1]["note"] is None and ph[1]["location"] is None and ph[1]["accuracyM"] is None
@@ -75,6 +75,51 @@ def test_photos_page_cap_500_rows(client, auth_headers, respx_mock):
     assert r.status_code == 200 and len(r.json()["photos"]) == 200
     assert route.call_count == 3  # 200 + 200 + 200 reaches the 500-row cap
 
+
+CAT_IRI = "https://smartdatamodels.org/dataModel.Agrifood/category"
+TAG_IRI = "https://uri.etsi.org/ngsi-ld/default-context/tag"
+
+
+def _tag_of(client, auth_headers, respx_mock, **attrs):
+    respx_mock.get(ENT).mock(return_value=httpx.Response(200, json=[_rec(1, **attrs)]))
+    r = client.get(f"{B}/p1/photos", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    return r.json()["photos"][0]["tag"]
+
+
+def test_photos_tag_from_category(client, auth_headers, respx_mock):
+    assert _tag_of(client, auth_headers, respx_mock, category="weed") == "weed"
+
+
+def test_photos_tag_from_category_iri(client, auth_headers, respx_mock):
+    assert _tag_of(client, auth_headers, respx_mock, **{CAT_IRI: "disease"}) == "disease"
+
+
+def test_photos_tag_legacy_fallback(client, auth_headers, respx_mock):
+    assert _tag_of(client, auth_headers, respx_mock, tag="damage") == "damage"
+    assert _tag_of(client, auth_headers, respx_mock, **{TAG_IRI: "soil_water"}) == "soil_water"
+    assert _tag_of(client, auth_headers, respx_mock, category="pest", tag="weed") == "pest"
+
+
+def test_photos_tag_unknown_is_other(client, auth_headers, respx_mock):
+    assert _tag_of(client, auth_headers, respx_mock, category="hail") == "other"
+    assert _tag_of(client, auth_headers, respx_mock, tag="t") == "other"
+
+
+def test_photos_tag_absent_is_null(client, auth_headers, respx_mock):
+    assert _tag_of(client, auth_headers, respx_mock) is None
+
+
+def test_photos_tag_filter_in_q(client, auth_headers, respx_mock):
+    route = respx_mock.get(ENT).mock(return_value=httpx.Response(200, json=[_rec(1, category="pest")]))
+    r = client.get(f"{B}/p1/photos?tag=pest", headers=auth_headers)
+    assert r.status_code == 200
+    assert route.calls[0].request.url.params["q"].endswith(';category=="pest"')
+
+
+def test_photos_tag_filter_invalid_400(client, auth_headers):
+    r = client.get(f"{B}/p1/photos?tag=bogus", headers=auth_headers)
+    assert r.status_code == 400 and r.json() == {"error": "invalid_tag"}
 
 @pytest.mark.parametrize("qs", ["limit=0", "limit=201", "limit=x", "since=yesterday"])
 def test_photos_400(client, auth_headers, qs):
