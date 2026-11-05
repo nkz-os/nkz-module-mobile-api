@@ -16,6 +16,7 @@ def settings_env(monkeypatch):
     monkeypatch.setenv("FIELD_OPS_URL", "http://fo")
     monkeypatch.setenv("RISK_URL", "http://risk")
     monkeypatch.setenv("VEGETATION_URL", "http://veg")
+    monkeypatch.setenv("NOTIFICATIONS_URL", "http://notif")
     monkeypatch.setenv("ORION_LD_URL", "http://orion:1026")
     get_settings.cache_clear()
     yield

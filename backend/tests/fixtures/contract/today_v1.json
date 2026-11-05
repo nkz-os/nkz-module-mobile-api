@@ -1,7 +1,7 @@
 {
   "version": 1,
   "generatedAt": "2026-11-03T08:00:00Z",
-  "sources": {"cropHealth": "ok", "risk": "ok", "weather": "failed"},
+  "sources": {"cropHealth": "ok", "risk": "ok", "weather": "failed", "notifications": "empty"},
   "cards": [
     {"id": "card-1", "kind": "alert", "urgency": "vibrate", "parcelId": "urn:ngsi-ld:AgriParcel:p1", "parcelName": "Parcela Norte",
      "messageKey": "card.alert.disease", "params": {"disease": "mildew"},

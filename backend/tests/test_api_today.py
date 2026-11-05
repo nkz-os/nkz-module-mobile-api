@@ -18,6 +18,21 @@ WX = {"alerts": [{"id": "w1", "severity": "severe", "description": "Frost",
                   "validFrom": "2026-11-04T00:00:00Z", "validTo": "2026-11-04T09:00:00Z"}]}
 
 
+REPORT = {"reportId": "r-1", "weekStart": "2026-11-02", "status": "complete",
+          "generatedAt": "2026-11-02T06:00:00Z", "plain": {"title": "Weekly", "body": "Calm"}}
+NOTIF = "http://notif/api/notifications/weekly-report/latest"
+
+
+@pytest.fixture
+def admin_headers(auth_headers):
+    return {**auth_headers, "X-User-Roles": "TenantAdmin"}
+
+
+@pytest.fixture
+def report(respx_mock):
+    return respx_mock.get(NOTIF).mock(return_value=httpx.Response(200, json=REPORT))
+
+
 @pytest.fixture
 def upstream(respx_mock):
     return {
@@ -35,7 +50,8 @@ def test_today_contract_and_identity(client, auth_headers, upstream):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["version"] == 1
-    assert body["sources"] == {"cropHealth": "ok", "risk": "ok", "weather": "ok"}
+    assert body["sources"] == {"cropHealth": "ok", "risk": "ok", "weather": "ok",
+                               "notifications": "empty"}
     assert [c["id"] for c in body["cards"]] == ["a1", "w1", f"job:{P}p1:irrigate"]
     assert body["summary"] == {"alerts": 2, "jobsToday": 1, "surprises": 0, "noData": 0}
     assert upstream["parcels"].calls[0].request.headers["X-Tenant-ID"] == "acmefarm"
@@ -92,3 +108,58 @@ def test_degraded_today_not_cached(client, auth_headers, upstream):
     assert r.json()["sources"]["risk"] == "ok"
     assert client.get(PATH, headers=auth_headers).json()["sources"]["risk"] == "ok"
     assert upstream["risk"].call_count == 2  # 500, then 200 (cached afterwards)
+
+
+def test_admin_gets_report_card_last(client, admin_headers, upstream, report):
+    body = client.get(PATH + "?lang=en", headers=admin_headers).json()
+    assert body["version"] == 1 and body["sources"]["notifications"] == "ok"
+    assert body["cards"][-1]["id"] == "weekly_report:r-1"
+    assert report.calls[0].request.url.params["lang"] == "en"
+    assert report.calls[0].request.headers["X-Tenant-ID"] == "acmefarm"
+
+
+def test_technical_consultant_gets_card(client, auth_headers, upstream, report):
+    h = {**auth_headers, "X-User-Roles": "TechnicalConsultant"}
+    assert client.get(PATH, headers=h).json()["cards"][-1]["kind"] == "weekly_report"
+
+
+def test_farmer_no_call_no_card(client, auth_headers, upstream, report):
+    body = client.get(PATH, headers=auth_headers).json()
+    assert report.call_count == 0 and body["sources"]["notifications"] == "empty"
+    assert all(c["kind"] != "weekly_report" for c in body["cards"])
+
+
+def test_report_404_empty(client, admin_headers, upstream, report):
+    report.mock(return_value=httpx.Response(404))
+    body = client.get(PATH, headers=admin_headers).json()
+    assert body["sources"]["notifications"] == "empty"
+    assert all(c["kind"] != "weekly_report" for c in body["cards"])
+
+
+def test_report_failed_no_card_not_cached(client, admin_headers, upstream, report):
+    report.mock(return_value=httpx.Response(500))
+    r = client.get(PATH, headers=admin_headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["sources"]["notifications"] == "failed" and body["sources"]["risk"] == "ok"
+    assert [c["id"] for c in body["cards"]] == ["a1", "w1", f"job:{P}p1:irrigate"]
+    client.get(PATH, headers=admin_headers)
+    assert upstream["risk"].call_count == 2  # failed result not cached
+
+
+def test_report_malformed_failed_no_500(client, admin_headers, upstream, report):
+    report.mock(return_value=httpx.Response(200, json={"reportId": "r-1"}))
+    r = client.get(PATH, headers=admin_headers)
+    assert r.status_code == 200 and r.json()["sources"]["notifications"] == "failed"
+    assert all(c["kind"] != "weekly_report" for c in r.json()["cards"])
+
+
+def test_cache_not_shared_between_roles(client, admin_headers, auth_headers, upstream, report):
+    first = client.get(PATH, headers=admin_headers).json()
+    assert first["cards"][-1]["kind"] == "weekly_report"
+    second = client.get(PATH, headers=auth_headers).json()
+    assert all(c["kind"] != "weekly_report" for c in second["cards"])
+    assert second["sources"]["notifications"] == "empty"
+    # admin again is served from cache without a second upstream call
+    client.get(PATH, headers=admin_headers)
+    assert report.call_count == 1
