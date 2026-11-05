@@ -82,13 +82,15 @@ _PHOTO_ROW_CAP = 500
 
 
 async def photos(client: OrionClient, urn: str, since: datetime | None, limit: int,
-                 rid: str = "") -> SourceResult:
+                 rid: str = "", tag: str | None = None) -> SourceResult:
     async def run() -> SourceResult:
         # `;imageUrl` is an attribute-existence term: daily weather records for the
         # same parcel carry no image and must not crowd the photos out of the page.
         q = f'(hasAgriParcel=="{urn}"|refAgriParcel=="{urn}");imageUrl'
         if since is not None:
             q += f';dateObserved>="{_iso_z(since)}"'
+        if tag is not None:
+            q += f';category=="{tag}"'
         found: list[dict[str, Any]] = []
         offset = 0
         while offset < _PHOTO_ROW_CAP:
