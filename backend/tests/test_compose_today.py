@@ -165,7 +165,8 @@ def test_sources_and_failed_inputs():
                       risk_alerts=SourceResult("failed", error="http_500"),
                       wx_alerts=SourceResult("timeout"))
     assert out.cards == []
-    assert out.sources.model_dump() == {"cropHealth": "empty", "risk": "failed", "weather": "timeout"}
+    assert out.sources.model_dump() == {"cropHealth": "empty", "risk": "failed", "weather": "timeout",
+                                         "notifications": "empty"}
     assert out.generatedAt == "2026-11-03T08:00:00Z" and out.version == 1
 
 

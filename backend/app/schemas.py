@@ -18,8 +18,8 @@ CodeKey = Literal[
     "clear", "cloudy", "fog", "drizzle", "rain", "snow", "showers", "thunder", "unknown",
 ]
 Urgency = Literal["vibrate", "silent"]
-CardKind = Literal["alert", "job", "surprise", "info"]
-ActionKind = Literal["open_parcel", "record_operation", "ask_assistant", "none"]
+CardKind = Literal["alert", "job", "surprise", "info", "weekly_report"]
+ActionKind = Literal["open_parcel", "record_operation", "ask_assistant", "open_report", "none"]
 Metric = Literal["water_balance", "cwsi", "rain", "tmax", "tmin", "vigor"]
 Freshness = Literal["fresh", "aging", "stale", "none"]
 
@@ -209,6 +209,7 @@ class TodaySources(_Model):
     cropHealth: SourceStatus
     risk: SourceStatus
     weather: SourceStatus
+    notifications: SourceStatus = "empty"
 
 
 class CardPlain(_Model):

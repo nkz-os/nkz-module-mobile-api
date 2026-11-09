@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     field_ops_url: str = "http://field-operations-api-service:8420"
     risk_url: str = "http://risk-module-api-service:8000"
     vegetation_url: str = "http://vegetation-prime-api-service:8000"
+    notifications_url: str = "http://notifications-api-service:8000"
 
     # Deadlines (seconds)
     source_timeout_s: float = 5.0

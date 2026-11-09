@@ -129,18 +129,37 @@ def _parcel_cards(res: SourceResult, now: str) -> tuple[list[Card], list[Card], 
     return today_c, other, surprises, info, no_data
 
 
+def _report_card(res: SourceResult) -> tuple[Card | None, str]:
+    """Returns (card, source status). A malformed 200 is a failed source, never an error."""
+    if res.status != "ok":
+        return None, res.status
+    d = res.data
+    plain = d.get("plain") if isinstance(d, dict) else None
+    rid, at = (_str(d.get("reportId")), _str(d.get("generatedAt"))) if isinstance(d, dict) else (None, None)
+    if not rid or not isinstance(plain, dict) or not _str(plain.get("title")) or not _str(plain.get("body")):
+        return None, "failed"
+    return Card(
+        id=f"weekly_report:{rid}", kind="weekly_report", urgency="silent", parcelId=None,
+        parcelName=None, messageKey="card.weekly_report", params={},
+        plain=CardPlain(title=plain["title"], body=plain["body"]),
+        action=CardAction(kind="none", params={}), at=at or ""), "ok"
+
+
 def build(*, now: datetime, lang: str, parcels: SourceResult, risk_alerts: SourceResult,
-          wx_alerts: SourceResult) -> TodayV1:
+          wx_alerts: SourceResult, report: SourceResult = SourceResult("empty")) -> TodayV1:
     stamp = _iso(now)
     alerts = _risk_cards(risk_alerts, lang, stamp) + _weather_cards(wx_alerts, stamp)
     alerts.sort(key=lambda c: (c.urgency != "vibrate",
                                _SEVERITY_RANK.get(str(c.params.get("severity")), 9)))
     jobs_today, jobs_other, surprises, info, no_data = _parcel_cards(parcels, stamp)
     ordered = alerts + jobs_today + jobs_other + surprises + info
+    report_card, report_status = _report_card(report)
+    # The report card is the lowest tier but must survive the cap.
+    cards = ordered[:MAX_CARDS - 1] + [report_card] if report_card else ordered[:MAX_CARDS]
     return TodayV1(
         generatedAt=stamp,
         sources=TodaySources(cropHealth=parcels.status, risk=risk_alerts.status,
-                             weather=wx_alerts.status),
-        cards=ordered[:MAX_CARDS],
+                             weather=wx_alerts.status, notifications=report_status),
+        cards=cards,
         summary=TodaySummary(alerts=len(alerts), jobsToday=len(jobs_today),
                              surprises=len(surprises), noData=no_data))
