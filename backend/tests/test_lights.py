@@ -140,3 +140,67 @@ def test_risks_ignores_non_dict_items():
                        ["y", 2, {"severity": "critical", "alertType": "frost"}], True)
     assert out.level == "bad" and out.params == {"disease": "mildew"}
     assert lights.risks([1, "x"], [None], True).level == "ok"
+
+
+def _frost(severity="high", lead=3, tmin=-2.0, **extra):
+    ev = {"text_lead": lead, "text_tmin_c": tmin}
+    ev.update(extra)
+    return {"alertType": "frost", "severity": severity, "evaluationData": ev}
+
+
+def test_frost_high_several_nights_ahead_is_amber():
+    light = lights.risks(None, [_frost("high", lead=3, tmin=-3.0)], True)
+    assert kl(light) == ("warn", "state.risks.frost_watch")
+    assert light.params == {}
+
+
+def test_frost_low_severity_near_is_amber():
+    assert kl(lights.risks(None, [_frost("low", lead=2, tmin=-1.0)], True)) == ("warn", "state.risks.frost_watch")
+
+
+def test_frost_critical_is_red_even_far_ahead():
+    assert kl(lights.risks(None, [_frost("critical", lead=4, tmin=-6.0)], True)) == ("bad", "state.risks.frost_act")
+
+
+@pytest.mark.parametrize("lead", [0, 1])
+def test_frost_tonight_below_zero_is_red(lead):
+    assert kl(lights.risks(None, [_frost("high", lead=lead, tmin=-0.5)], True)) == ("bad", "state.risks.frost_act")
+
+
+def test_frost_tonight_not_below_zero_is_amber():
+    assert kl(lights.risks(None, [_frost("high", lead=1, tmin=0.0)], True)) == ("warn", "state.risks.frost_watch")
+
+
+def test_frost_missing_evaluation_data_is_amber_never_red():
+    for a in ({"alertType": "frost", "severity": "high"},
+              {"alertType": "frost", "severity": "high", "evaluationData": None},
+              {"alertType": "frost", "severity": "high", "evaluationData": {"text_tmin_c": -3}},
+              {"alertType": "frost", "severity": "high", "evaluationData": {"text_lead": 0}},
+              {"alertType": "frost", "severity": "high", "evaluationData": {"text_lead": "0", "text_tmin_c": "x"}}):
+        assert kl(lights.risks(None, [a], True)) == ("warn", "state.risks.frost_watch")
+
+
+def test_frost_wrapped_evaluation_data_is_read():
+    a = {"alertType": "frost", "severity": "high",
+         "evaluationData": {"type": "Property", "value": {"text_lead": 1, "text_tmin_c": -1.0}}}
+    assert kl(lights.risks(None, [a], True)) == ("bad", "state.risks.frost_act")
+
+
+def test_disease_alert_unchanged_and_no_frost_code():
+    light = lights.risks(None, [{"alertType": "mildew", "severity": "high"}], True)
+    assert kl(light) == ("bad", "state.risks.treat")
+    assert light.params == {"disease": "mildew"}
+
+
+def test_two_frost_alerts_worst_wins():
+    far = _frost("high", lead=3, tmin=-3.0)
+    tonight = _frost("high", lead=1, tmin=-1.0)
+    for order in ([far, tonight], [tonight, far]):
+        assert kl(lights.risks(None, order, True)) == ("bad", "state.risks.frost_act")
+    assert kl(lights.risks(None, [far, _frost("medium", lead=2, tmin=-1.0)], True)) == ("warn", "state.risks.frost_watch")
+
+
+def test_frost_amber_does_not_hide_disease_red():
+    light = lights.risks([{"risk_level": "high", "disease": "mildew"}], [_frost()], True)
+    assert kl(light) == ("bad", "state.risks.treat")
+

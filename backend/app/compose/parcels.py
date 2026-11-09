@@ -6,28 +6,32 @@ from ..ids import to_urn
 from ..schemas import Light, ParcelRow, ParcelsSources, ParcelsV1
 from ..sources.base import SourceResult
 from ._util import _lower, _num, _str, _unwrap, alert_is_active, alert_ref_urn
-from .lights import severity_to_level
+from .lights import overall as lights_overall
+from .lights import risks, severity_to_level
 from .today import _iso, _rows
 
 _FRESHNESS = ("fresh", "aging", "stale", "none")
 
 
-def _treat_by_parcel(res: SourceResult) -> dict[str, str | None]:
-    """URN -> disease/alert type for active high|critical risk alerts."""
-    out: dict[str, str | None] = {}
+def _alerts_by_parcel(res: SourceResult) -> dict[str, list[dict]]:
+    """URN -> active risk alerts, in the shape `lights.risks` reads."""
+    out: dict[str, list[dict]] = {}
     for a in _rows(res, "alerts"):
         if not alert_is_active(a):
             continue
-        if _lower(a.get("severity")) not in ("high", "critical"):
-            continue
         urn = alert_ref_urn(a)
-        if urn is not None and urn not in out:
-            out[urn] = _lower(a.get("alertType")) or _str(_unwrap(a.get("disease")))
+        if urn is None:
+            continue
+        out.setdefault(urn, []).append({
+            "severity": _unwrap(a.get("severity")),
+            "alertType": _lower(a.get("alertType")) or _str(_unwrap(a.get("disease"))),
+            "evaluationData": _unwrap(a.get("evaluationData")),
+        })
     return out
 
 
 def build(*, now: datetime, parcels: SourceResult, risk_alerts: SourceResult) -> ParcelsV1:
-    treat = _treat_by_parcel(risk_alerts)
+    alerts = _alerts_by_parcel(risk_alerts)
     rows: list[ParcelRow] = []
     for r in _rows(parcels, "parcels"):
         pid = _str(r.get("parcelId"))
@@ -36,9 +40,14 @@ def build(*, now: datetime, parcels: SourceResult, risk_alerts: SourceResult) ->
         urn = to_urn(pid)
         level = severity_to_level(_str(r.get("overallSeverity")))
         overall = Light(level=level, messageKey=f"state.overall.{level}", params={})
-        if urn in treat:
-            overall = Light(level="bad", messageKey="state.risks.treat",
-                            params={"disease": treat[urn]})
+        # Only high|critical non-frost alerts and frost alerts move the list light;
+        # medium non-frost alerts never did. Frost may be amber, so it keeps a worse
+        # crop-health light instead of replacing it.
+        risk = risks(None, alerts.get(urn), True)
+        if risk.level == "bad":
+            overall = risk
+        elif risk.messageKey == "state.risks.frost_watch":
+            overall = lights_overall(overall, risk)
         fresh = r.get("freshness")
         rows.append(ParcelRow(
             parcelId=urn, parcelName=_str(r.get("parcelName")) or pid,

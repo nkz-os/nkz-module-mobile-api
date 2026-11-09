@@ -219,10 +219,22 @@ def test_weather_none_when_all_weather_sources_down():
 
 def test_parcel_name_fallback_and_ref_forms():
     assert run(name=None).parcelName == "Norte"  # from the crop-health assessment
-    alerts = {"alerts": [{"alertType": "frost", "severity": "high", "refEntity": "p1"}]}
+    alerts = {"alerts": [{"alertType": "mildew", "severity": "high", "refEntity": "p1"}]}
     assert run(risk_alerts=alerts).state.risks.level == "bad"
-    obj = {"alerts": [{"alertType": "frost", "severity": "high", "refEntity": {"object": URN}}]}
+    obj = {"alerts": [{"alertType": "mildew", "severity": "high", "refEntity": {"object": URN}}]}
     assert run(risk_alerts=obj).state.risks.level == "bad"
+
+
+def test_frost_alert_evaluation_data_reaches_the_light():
+    def alert(lead, tmin):
+        return {"alerts": [{"alertType": "frost", "severity": "high", "refEntity": "p1",
+                            "evaluationData": {"type": "Property", "value": {"text_lead": lead, "text_tmin_c": tmin}}}]}
+    far = run(risk_alerts=alert(3, -3.0)).state.risks
+    assert (far.level, far.messageKey) == ("warn", "state.risks.frost_watch")
+    tonight = run(risk_alerts=alert(1, -1.0)).state.risks
+    assert (tonight.level, tonight.messageKey) == ("bad", "state.risks.frost_act")
+    bare = {"alerts": [{"alertType": "frost", "severity": "high", "refEntity": "p1"}]}
+    assert run(risk_alerts=bare).state.risks.level == "warn"
 
 
 def test_parcel_name_none_when_nowhere():

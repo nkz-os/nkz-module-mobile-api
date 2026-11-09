@@ -259,7 +259,8 @@ def _risk_alerts_for(risk_alerts: SourceResult, parcel_urn: str) -> list[dict]:
         status = _unwrap(a.get("status"))
         if status is not None and str(status).lower() != "active":
             continue
-        out.append({"severity": _unwrap(a.get("severity")), "alertType": _unwrap(a.get("alertType"))})
+        out.append({"severity": _unwrap(a.get("severity")), "alertType": _unwrap(a.get("alertType")),
+                    "evaluationData": _unwrap(a.get("evaluationData"))})
     return out
 
 

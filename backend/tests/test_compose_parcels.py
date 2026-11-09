@@ -75,3 +75,34 @@ def test_rows_without_id_skipped_and_bad_freshness_none():
 def test_sources_include_risk_status():
     out = compose.build(now=NOW, parcels=_ch(_row()), risk_alerts=SourceResult("failed"))
     assert out.sources.model_dump() == {"cropHealth": "ok", "risk": "failed"}
+
+
+def _frost(ref, sev="high", lead=3, tmin=-3.0):
+    a = _alert(ref, sev, atype="frost")
+    a["evaluationData"] = {"type": "Property", "value": {"text_lead": lead, "text_tmin_c": tmin}}
+    return a
+
+
+def test_frost_far_ahead_is_amber_in_the_list_without_raw_code():
+    out = compose.build(now=NOW, parcels=_ch(_row("p1")), risk_alerts=_risk(_frost("p1")))
+    o = out.parcels[0].overall
+    assert (o.level, o.messageKey, o.params) == ("warn", "state.risks.frost_watch", {})
+
+
+def test_frost_tonight_or_critical_is_red_in_the_list():
+    out = compose.build(now=NOW, parcels=_ch(_row("p1"), _row("p2")), risk_alerts=_risk(
+        _frost("p1", lead=1, tmin=-1.0), _frost("p2", "critical", lead=4, tmin=-5.0)))
+    for p in out.parcels:
+        assert (p.overall.level, p.overall.messageKey, p.overall.params) == ("bad", "state.risks.frost_act", {})
+
+
+def test_frost_without_evaluation_data_is_amber_in_the_list():
+    a = _alert("p1", "high", atype="frost")
+    out = compose.build(now=NOW, parcels=_ch(_row("p1")), risk_alerts=_risk(a))
+    assert out.parcels[0].overall.level == "warn"
+
+
+def test_frost_amber_keeps_a_worse_crop_health_light():
+    out = compose.build(now=NOW, parcels=_ch(_row("p1", sev="HIGH")), risk_alerts=_risk(_frost("p1")))
+    assert out.parcels[0].overall.level == "bad"
+    assert out.parcels[0].overall.messageKey == "state.overall.bad"
