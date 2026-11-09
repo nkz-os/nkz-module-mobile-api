@@ -6,7 +6,7 @@ from typing import Any
 from ..ids import to_urn
 from ..schemas import Card, CardAction, CardPlain, TodaySources, TodaySummary, TodayV1
 from ..sources.base import SourceResult
-from ._util import _lower, _str, _unwrap, alert_is_active, alert_ref_urn
+from ._util import _lower, _str, _unwrap, alert_is_active, alert_ref_urn, record_operation_params
 
 MAX_CARDS = 50
 MAX_WEATHER = 5
@@ -115,7 +115,7 @@ def _parcel_cards(res: SourceResult, now: str) -> tuple[list[Card], list[Card], 
                     urgency="vibrate" if kind in _VIBRATE_JOBS and when == "today" else "silent",
                     parcelId=urn, parcelName=name, messageKey=f"card.job.{kind}",
                     params={**detail, "when": when}, plain=None,
-                    action=(CardAction(kind="record_operation", params={"parcelId": urn, "kind": kind})
+                    action=(CardAction(kind="record_operation", params=record_operation_params(urn, kind))
                             if kind in _RECORD_JOBS else _open_parcel(urn)),
                     at=now)
                 (today_c if when == "today" else other).append(card)

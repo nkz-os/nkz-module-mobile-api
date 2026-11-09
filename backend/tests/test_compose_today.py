@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
 from app.compose import today
+from app.compose import today as today_mod
+from app.compose._util import RECORD_OPERATION_TYPE
 from app.sources.base import SourceResult
 
 NOW = datetime(2026, 11, 3, 8, 0, tzinfo=timezone.utc)
@@ -101,9 +103,12 @@ def test_job_cards_and_actions():
     assert j1.kind == "job" and j1.urgency == "vibrate" and j1.messageKey == "card.job.irrigate"
     assert j1.params == {"mm": 12, "when": "today"}
     assert j1.action.kind == "record_operation"
-    assert j1.action.params == {"parcelId": P + "p1", "kind": "irrigate"}
+    assert j1.action.params == {"parcelId": P + "p1", "kind": "irrigate",
+                                "operationType": "irrigation"}
     j2 = by["job:" + P + "p2:harvest"]
     assert j2.urgency == "silent" and j2.action.kind == "record_operation"
+    assert j2.action.params == {"parcelId": P + "p2", "kind": "harvest",
+                                "operationType": "harvesting"}
     j3 = by["job:" + P + "p3:scout"]
     assert j3.urgency == "silent" and j3.action.kind == "open_parcel"
     assert j3.parcelName == "Norte"
@@ -189,3 +194,26 @@ def test_job_without_when_is_not_invented_and_sorts_after_today():
     scout = out.cards[1]
     assert scout.params == {"when": None} and scout.urgency == "silent"
     assert out.summary.jobsToday == 1
+
+
+def test_record_actions_carry_operation_type_per_kind():
+    rows = [row(f"p{i}", nextJob={"kind": k, "when": "today", "detail": {}})
+            for i, k in enumerate(["sow", "treat"])]
+    out = build(parcels=rows)
+    by = {c.id: c for c in out.cards}
+    assert by["job:" + P + "p0:sow"].action.params["operationType"] == "sowing"
+    assert by["job:" + P + "p1:treat"].action.params["operationType"] == "spraying"
+
+
+def test_record_action_without_mapping_emits_no_operation_type(monkeypatch):
+    monkeypatch.delitem(RECORD_OPERATION_TYPE, "irrigate")
+    rows = [row("p1", nextJob={"kind": "irrigate", "when": "today", "detail": {}})]
+    out = build(parcels=rows)
+    action = out.cards[0].action
+    assert action.kind == "record_operation"
+    assert action.params == {"parcelId": P + "p1", "kind": "irrigate"}
+
+
+def test_every_emittable_record_kind_has_an_operation_type():
+    assert today_mod._RECORD_JOBS <= set(RECORD_OPERATION_TYPE)
+    assert set(RECORD_OPERATION_TYPE.values()) == {"irrigation", "sowing", "spraying", "harvesting"}
