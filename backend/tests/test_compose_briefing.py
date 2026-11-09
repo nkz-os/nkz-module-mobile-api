@@ -144,6 +144,31 @@ def test_operations_after_now_excluded():
     assert b.soil.lastOperation.type == "tillage"
 
 
+def _op(oid, status, when, typ="irrigation"):
+    return {"id": oid, "operationType": typ, "status": status, "startedAt": when}
+
+
+def test_completed_op_stamped_today_noon_is_present_and_last():
+    b = run(ops={"operations": [_op("today", "completed", "2026-11-03T12:00:00Z")]})
+    assert [o.id for o in b.operations] == ["today"]
+    assert b.soil.lastOperation.type == "irrigation"
+
+
+def test_completed_op_dated_tomorrow_is_present():
+    b = run(ops={"operations": [_op("tmrw", "completed", "2026-11-04T12:00:00Z")]})
+    assert [o.id for o in b.operations] == ["tmrw"]
+
+
+def test_planned_future_op_still_dropped():
+    b = run(ops={"operations": [_op("plan", "planned", "2026-11-03T12:00:00Z")]})
+    assert b.operations == []
+
+
+def test_completed_op_dated_in_three_days_dropped():
+    b = run(ops={"operations": [_op("far", "completed", "2026-11-06T12:00:00Z")]})
+    assert b.operations == []
+
+
 def test_composer_tolerates_null_start_date():
     # The SDK never reports a cycle without a start date as `current` (spec 5.12);
     # the composer must still not break if one arrives.
