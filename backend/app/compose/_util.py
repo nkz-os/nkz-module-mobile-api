@@ -4,6 +4,14 @@ from typing import Any
 
 from ..ids import to_urn
 
+# Parcel job kind -> operation type recorded by the `record_operation` card action.
+RECORD_OPERATION_TYPE = {
+    "irrigate": "irrigation",
+    "sow": "sowing",
+    "treat": "spraying",
+    "harvest": "harvesting",
+}
+
 
 def _num(v: Any) -> float | None:
     if isinstance(v, bool) or not isinstance(v, (int, float)):
@@ -40,3 +48,12 @@ def alert_ref_urn(alert: dict) -> str | None:
     """Parcel URN a risk alert refers to (`refEntity`, any form), else None."""
     ref = _unwrap(alert.get("refEntity"))
     return to_urn(ref) if isinstance(ref, str) and ref else None
+
+
+def record_operation_params(parcel_urn: str, kind: str) -> dict:
+    """Params of a `record_operation` action; `operationType` only when the kind maps."""
+    params: dict = {"parcelId": parcel_urn, "kind": kind}
+    op_type = RECORD_OPERATION_TYPE.get(kind)
+    if op_type is not None:
+        params["operationType"] = op_type
+    return params

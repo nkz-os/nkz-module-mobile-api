@@ -1,6 +1,6 @@
 """Pure composition of BriefingV1 from source results (spec 2.3). No I/O."""
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from ..schemas import (
@@ -211,9 +211,16 @@ def _ops(ops: SourceResult, now: datetime) -> list[Operation]:
         oid, typ = _str(r.get("id")), _str(r.get("operationType"))
         if oid and typ and when:
             at = _parse_when(when)
-            if at is not None and at > now:
-                continue  # planned for the future: not something that happened
-            out.append(Operation(id=oid, type=typ, date=when, status=_str(r.get("status")) or "unknown"))
+            status = _str(r.get("status")) or "unknown"
+            if at is not None:
+                if status == "completed":
+                    # Recorded facts are stamped at noon UTC and the server allows a
+                    # one-day date margin: compare by day, not by instant.
+                    if at.astimezone(timezone.utc).date() > (now.astimezone(timezone.utc) + timedelta(days=1)).date():
+                        continue
+                elif at > now:
+                    continue  # planned for the future: not something that happened
+            out.append(Operation(id=oid, type=typ, date=when, status=status))
     out.sort(key=lambda o: o.date, reverse=True)
     return out
 
