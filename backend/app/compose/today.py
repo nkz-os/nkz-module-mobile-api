@@ -119,6 +119,13 @@ def _parcel_cards(res: SourceResult, now: str) -> tuple[list[Card], list[Card], 
                             if kind in _RECORD_JOBS else _open_parcel(urn)),
                     at=now)
                 (today_c if when == "today" else other).append(card)
+        jobs = r.get("jobs")
+        if isinstance(jobs, list) and any(isinstance(j, dict) and j.get("kind") == "monitor_satellite"
+                                          for j in jobs):
+            info.append(Card(
+                id=f"info:{urn}:monitor_satellite", kind="info", urgency="silent", parcelId=urn,
+                parcelName=name, messageKey="card.job.monitor_satellite", params={}, plain=None,
+                action=CardAction(kind="activate_monitoring", params={"parcelId": urn}), at=now))
         s = r.get("surprise")
         if isinstance(s, dict) and _str(s.get("code")):
             detail = s["detail"] if isinstance(s.get("detail"), dict) else {}
