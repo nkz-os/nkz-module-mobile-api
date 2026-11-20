@@ -19,7 +19,8 @@ CodeKey = Literal[
 ]
 Urgency = Literal["vibrate", "silent"]
 CardKind = Literal["alert", "job", "surprise", "info", "weekly_report"]
-ActionKind = Literal["open_parcel", "record_operation", "ask_assistant", "open_report", "none"]
+ActionKind = Literal["open_parcel", "record_operation", "ask_assistant", "open_report",
+                    "activate_monitoring", "none"]
 Metric = Literal["water_balance", "cwsi", "rain", "tmax", "tmin", "vigor"]
 Freshness = Literal["fresh", "aging", "stale", "none"]
 

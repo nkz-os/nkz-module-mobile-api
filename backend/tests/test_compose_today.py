@@ -217,3 +217,33 @@ def test_record_action_without_mapping_emits_no_operation_type(monkeypatch):
 def test_every_emittable_record_kind_has_an_operation_type():
     assert today_mod._RECORD_JOBS <= set(RECORD_OPERATION_TYPE)
     assert set(RECORD_OPERATION_TYPE.values()) == {"irrigation", "sowing", "spraying", "harvesting"}
+
+
+def test_monitor_satellite_job_gives_a_silent_info_card():
+    out = build(parcels=[row(pid="p1", nextJob={"kind": "irrigate", "when": "today"},
+                             jobs=[{"kind": "irrigate", "when": "today"}, {"kind": "monitor_satellite"}])])
+    c = next(c for c in out.cards if c.messageKey == "card.job.monitor_satellite")
+    assert c.id == f"info:{P}p1:monitor_satellite" and c.kind == "info" and c.urgency == "silent"
+    assert c.parcelId == P + "p1" and c.params == {}
+    assert c.action.kind == "activate_monitoring" and c.action.params == {"parcelId": P + "p1"}
+    job = next(c for c in out.cards if c.kind == "job")
+    assert job.id == f"job:{P}p1:irrigate"
+    assert out.cards.index(job) < out.cards.index(c)  # info goes after job cards
+    assert out.summary.jobsToday == 1
+
+
+def test_monitor_satellite_absent_gives_no_card():
+    out = build(parcels=[row(pid="p1", jobs=[{"kind": "irrigate", "when": "today"}])])
+    assert not [c for c in out.cards if c.messageKey == "card.job.monitor_satellite"]
+
+
+def test_monitor_satellite_at_most_one_card_per_parcel():
+    out = build(parcels=[row(pid="p1", jobs=[{"kind": "monitor_satellite"}, {"kind": "monitor_satellite"}]),
+                         row(pid="p2", jobs=[{"kind": "monitor_satellite"}])])
+    ids = [c.id for c in out.cards if c.messageKey == "card.job.monitor_satellite"]
+    assert ids == [f"info:{P}p1:monitor_satellite", f"info:{P}p2:monitor_satellite"]
+
+
+def test_monitor_satellite_ignores_malformed_jobs():
+    out = build(parcels=[row(pid="p1", jobs="monitor_satellite"), row(pid="p2", jobs=[None, "x", {"kind": 3}])])
+    assert out.cards == []
