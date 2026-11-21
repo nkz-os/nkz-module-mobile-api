@@ -289,13 +289,17 @@ def _state(latest: SourceResult, diseases: SourceResult, risk_alerts: SourceResu
 def _forecast(yield_fc: SourceResult) -> YieldForecast | None:
     """The first validated estimate of crop-health's stored record (bioorch estimates).
 
-    Any record status counts: crop-health keeps the provincial normal when the model run fails.
+    Any live record status counts (crop-health keeps the provincial normal when the model run fails);
+    a season that ended shows nothing.
     Unvalidated or experimental figures (AquaCrop ceilings) never reach the farmer.
     """
     d = _data(yield_fc)
     est = [e for e in d.get("estimates") or [] if isinstance(e, dict)] \
         if isinstance(d.get("estimates"), list) else []
-    computed = _str(d.get("computed_at"))
+    if d.get("status") == "season_ended":
+        return None  # the record still holds last season's figure: never show it for a harvested crop
+    # A first failed run stores only attempted_at.
+    computed = _str(d.get("computed_at")) or _str(d.get("attempted_at"))
     if computed is None:
         return None
     for e in est:

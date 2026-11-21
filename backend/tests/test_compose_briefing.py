@@ -218,9 +218,23 @@ def test_forecast_range_only_uses_the_middle():
 
 def test_forecast_kept_when_the_model_run_failed():
     # crop-health keeps the provincial normal when AquaCrop fails: the figure still shows.
-    for status in ("failed", "unavailable", "season_ended"):
+    for status in ("failed", "unavailable"):
         fc = {"status": status, "computed_at": "c", "estimates": [_est(percentiles={"p10": 2, "p50": 3, "p90": 4})]}
         assert run(yield_fc=fc).forecast.yield_.value == 3
+
+
+def test_forecast_first_failed_run_without_computed_at_still_shows_the_normal():
+    # crop-health's first failed run stores no computed_at, only attempted_at.
+    fc = {"status": "failed", "attempted_at": "2026-11-21T03:00:00Z",
+          "estimates": [_est(percentiles={"p10": 2, "p50": 3, "p90": 4})]}
+    f = run(yield_fc=fc).forecast
+    assert f.yield_.value == 3 and f.computedAt == "2026-11-21T03:00:00Z"
+
+
+def test_forecast_hidden_once_the_season_ended():
+    # The record keeps last season's figure: it must not show for a harvested crop.
+    fc = {"status": "season_ended", "computed_at": "c", "estimates": [_est(percentiles={"p10": 2, "p50": 3, "p90": 4})]}
+    assert run(yield_fc=fc).forecast is None
 
 
 def test_forecast_needs_t_ha_and_a_number():
