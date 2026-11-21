@@ -30,7 +30,7 @@
             "overall": {"level": "bad", "messageKey": "state.plant.stressed", "params": {"stressor": "drought"}},
             "assessedAt": "2026-11-03T02:00:00Z", "freshness": "fresh"},
   "forecast": {"yield": {"value": 3200.0, "unit": "kg/ha", "low": 2800.0, "high": 3600.0},
-               "harvestDate": "2026-11-28", "computedAt": "2026-11-02T02:00:00Z"},
+               "basis": "provincial_normal", "harvestDate": "2026-11-28", "computedAt": "2026-11-02T02:00:00Z"},
   "nextJob": {"kind": "irrigate", "when": "today", "detail": {"mm": 12}},
   "surprise": {"code": "frost_risk", "detail": {"minTempC": -1.0}},
   "operations": [{"id": "op-1", "type": "tillage", "date": "2026-10-20", "status": "completed"}]

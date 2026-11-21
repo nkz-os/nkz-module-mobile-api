@@ -53,7 +53,8 @@ def test_full():
     assert st.assessedAt == "2026-11-02T04:00:00Z"
     assert (b.forecast.yield_.value, b.forecast.yield_.low, b.forecast.yield_.high) == (3.2, 2.8, 3.6)
     assert b.forecast.yield_.unit == "t/ha"
-    assert b.forecast.harvestDate == "2027-06-20" and b.forecast.computedAt == "2026-11-02T02:00:00Z"
+    assert b.forecast.basis == "provincial_normal"  # the unvalidated AquaCrop figure never shows
+    assert b.forecast.harvestDate is None and b.forecast.computedAt == "2026-11-02T02:00:00Z"
     assert b.nextJob.kind == "irrigate" and b.surprise.code == "frost_risk"
     dumped = b.model_dump(by_alias=True)
     assert "yield" in dumped["forecast"]
@@ -189,11 +190,44 @@ def test_forecast_not_validated():
     assert run(yield_fc={"status": "done", "estimates": [], "computed_at": "x"}).forecast is None
 
 
-def test_forecast_defaults():
-    b = run(yield_fc={"status": "done", "computed_at": "2026-11-02T02:00:00Z",
-                      "harvestDate": "2027-06-01", "estimates": [{"value": 5.0}]})
-    assert b.forecast.yield_.unit == "t/ha" and b.forecast.yield_.low is None
-    assert b.forecast.harvestDate == "2027-06-01"
+def _est(status="validated", basis="provincial_normal", percentiles=None, range_=None, unit="t/ha"):
+    return {"provider_id": "x", "basis": basis, "unit": unit, "percentiles": percentiles, "range": range_,
+            "validation": {"status": status}}
+
+
+def test_forecast_reads_percentiles_of_the_first_validated_estimate():
+    fc = {"status": "done", "computed_at": "c", "estimates": [
+        _est(status="unvalidated", basis="water_limited", percentiles={"p10": 6, "p50": 7.5, "p90": 9}),
+        _est(percentiles={"p10": 2.8, "p50": 3.2, "p90": 3.6}, range_={"low": 2.8, "high": 3.6})]}
+    f = run(yield_fc=fc).forecast
+    assert (f.yield_.value, f.yield_.low, f.yield_.high, f.basis) == (3.2, 2.8, 3.6, "provincial_normal")
+
+
+def test_forecast_never_shows_an_unvalidated_figure():
+    fc = {"status": "done", "computed_at": "c", "estimates": [
+        _est(status="unvalidated", basis="water_limited", percentiles={"p10": 6, "p50": 7.5, "p90": 9}),
+        _est(status="experimental", basis="gap_corrected", range_={"low": 3, "high": 4})]}
+    assert run(yield_fc=fc).forecast is None
+
+
+def test_forecast_range_only_uses_the_middle():
+    fc = {"status": "done", "computed_at": "c", "estimates": [_est(range_={"low": 3.0, "high": 4.0})]}
+    f = run(yield_fc=fc).forecast
+    assert (f.yield_.value, f.yield_.low, f.yield_.high) == (3.5, 3.0, 4.0)
+
+
+def test_forecast_kept_when_the_model_run_failed():
+    # crop-health keeps the provincial normal when AquaCrop fails: the figure still shows.
+    for status in ("failed", "unavailable", "season_ended"):
+        fc = {"status": status, "computed_at": "c", "estimates": [_est(percentiles={"p10": 2, "p50": 3, "p90": 4})]}
+        assert run(yield_fc=fc).forecast.yield_.value == 3
+
+
+def test_forecast_needs_t_ha_and_a_number():
+    assert run(yield_fc={"status": "done", "computed_at": "c",
+                         "estimates": [_est(unit="kg/ha", percentiles={"p10": 1, "p50": 2, "p90": 3})]}).forecast is None
+    assert run(yield_fc={"status": "done", "computed_at": "c", "estimates": [_est()]}).forecast is None
+    assert run(yield_fc={"status": "not_computed", "refreshing": False}).forecast is None
 
 
 def test_planned_crop_name_fallbacks():
@@ -257,13 +291,11 @@ def test_topsoil_with_only_sand():
     assert run(soil_summary={"horizons": [{"depthFrom": 0, "depthTo": 30}]}).soil.topsoil is None
 
 
-def test_forecast_picks_yield_metric_and_legacy_value():
-    est = [{"metric": "other", "p50": 9}, {"metric": "yield_t_ha", "p50": 5.2, "p10": 4.1, "p90": 6.3}]
-    f = run(yield_fc={"status": "done", "computed_at": "t", "estimates": est}).forecast
-    assert (f.yield_.value, f.yield_.low, f.yield_.high, f.harvestDate) == (5.2, 4.1, 6.3, None)
-    f = run(yield_fc={"status": "done", "computed_at": "t",
-                      "estimates": [{"value": 5.0, "harvestDate": "2027-01-01"}]}).forecast
-    assert f.yield_.value == 5.0 and f.harvestDate == "2027-01-01"
+def test_forecast_ignores_root_level_figures_without_validation():
+    # The shape this module used to read (p50/value at the root) is not what bioorch sends,
+    # and it carries no validation: it must never show.
+    est = [{"metric": "yield_t_ha", "p50": 5.2, "p10": 4.1, "p90": 6.3}, {"value": 5.0}]
+    assert run(yield_fc={"status": "done", "computed_at": "t", "estimates": est}).forecast is None
 
 
 def test_crop_health_down_but_risk_alert_still_shows_state():
