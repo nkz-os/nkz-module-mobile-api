@@ -287,27 +287,42 @@ def _state(latest: SourceResult, diseases: SourceResult, risk_alerts: SourceResu
 
 
 def _forecast(yield_fc: SourceResult) -> YieldForecast | None:
+    """The first validated estimate of crop-health's stored record (bioorch estimates).
+
+    Any live record status counts (crop-health keeps the provincial normal when the model run fails);
+    a season that ended shows nothing.
+    Unvalidated or experimental figures (AquaCrop ceilings) never reach the farmer.
+    """
     d = _data(yield_fc)
     est = [e for e in d.get("estimates") or [] if isinstance(e, dict)] \
         if isinstance(d.get("estimates"), list) else []
-    if d.get("status") != "done" or not est:
+    if d.get("status") == "season_ended":
+        return None  # the record still holds last season's figure: never show it for a harvested crop
+    # A first failed run stores only attempted_at.
+    computed = _str(d.get("computed_at")) or _str(d.get("attempted_at"))
+    if computed is None:
         return None
-    e = next((x for x in est if x.get("metric") == "yield_t_ha"), None)
-    if e is None:
-        e = next((x for x in est if "metric" not in x), None)
-    if e is None:
-        return None
-    value = _num(e.get("p50"))
-    if value is None:
-        value = _num(e.get("value"))
-    computed = _str(d.get("computed_at"))
-    if value is None or computed is None:
-        return None
-    return YieldForecast(
-        yield_=YieldValue(value=value, unit="t/ha", low=_num(e.get("p10", e.get("low"))),
-                          high=_num(e.get("p90", e.get("high")))),
-        harvestDate=_str(d.get("harvestDate")) or _str(e.get("harvestDate")),
-        computedAt=computed)
+    for e in est:
+        validation = e.get("validation") if isinstance(e.get("validation"), dict) else {}
+        if validation.get("status") != "validated" or (e.get("unit") or "t/ha") != "t/ha":
+            continue
+        pct = e.get("percentiles") if isinstance(e.get("percentiles"), dict) else {}
+        rng = e.get("range") if isinstance(e.get("range"), dict) else {}
+        low = _num(pct.get("p10"))
+        high = _num(pct.get("p90"))
+        if low is None or high is None:
+            low, high = _num(rng.get("low")), _num(rng.get("high"))
+        value = _num(pct.get("p50"))
+        if value is None and low is not None and high is not None:
+            value = round((low + high) / 2, 2)
+        if value is None:
+            continue
+        return YieldForecast(
+            yield_=YieldValue(value=value, unit="t/ha", low=low, high=high),
+            basis=_str(e.get("basis")) or "unknown",
+            harvestDate=_str(d.get("harvestDate")),
+            computedAt=computed)
+    return None
 
 
 def _next_job(latest: SourceResult) -> NextJob | None:

@@ -171,6 +171,8 @@ class YieldForecast(_Model):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     yield_: YieldValue = Field(alias="yield")
+    # What the figure is (bioorch `basis`), e.g. "provincial_normal": the app labels it by this.
+    basis: str
     harvestDate: str | None
     computedAt: str
 
