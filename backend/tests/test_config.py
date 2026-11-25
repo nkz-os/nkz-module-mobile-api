@@ -22,3 +22,16 @@ def test_parcels_source_timeout_setting(monkeypatch):
     assert Settings(_env_file=None).source_timeout_parcels_s == 10.0
     monkeypatch.setenv("SOURCE_TIMEOUT_PARCELS_S", "7")
     assert Settings(_env_file=None).source_timeout_parcels_s == 7.0
+
+
+def test_swr_and_redis_settings(monkeypatch):
+    for k in ("REDIS_URL", "SWR_REFRESH_TIMEOUT_PARCELS_S", "SWR_REFRESH_BUDGET_S",
+              "CACHE_STALE_TTL_TODAY_S", "CACHE_STALE_TTL_PARCELS_S", "CACHE_STALE_TTL_BRIEFING_S"):
+        monkeypatch.delenv(k, raising=False)
+    s = Settings(_env_file=None)
+    assert s.redis_url == ""
+    assert s.swr_refresh_timeout_parcels_s == 20.0
+    assert s.swr_refresh_budget_s == 25.0
+    assert s.cache_stale_ttl_today_s == 600
+    assert s.cache_stale_ttl_parcels_s == 600
+    assert s.cache_stale_ttl_briefing_s == 600

@@ -6,7 +6,7 @@ Dates and timestamps are ISO strings, passed through untouched.
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
 
 SourceStatus = Literal["ok", "empty", "failed", "timeout"]
 LightLevel = Literal["ok", "warn", "bad", "unknown"]
@@ -27,6 +27,17 @@ Freshness = Literal["fresh", "aging", "stale", "none"]
 
 class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class _SWRModel(_Model):
+    stale: bool | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_fresh_stale_flag(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = handler(self)
+        if not data.get("stale"):
+            data.pop("stale", None)
+        return data
 
 
 class Light(_Model):
@@ -188,7 +199,7 @@ class Surprise(_Model):
     detail: dict[str, Any]
 
 
-class BriefingV1(_Model):
+class BriefingV1(_SWRModel):
     version: Literal[1] = 1
     parcelId: str
     parcelName: str | None
@@ -245,7 +256,7 @@ class TodaySummary(_Model):
     noData: int
 
 
-class TodayV1(_Model):
+class TodayV1(_SWRModel):
     version: Literal[1] = 1
     generatedAt: str
     sources: TodaySources
@@ -271,7 +282,7 @@ class ParcelRow(_Model):
     freshness: Freshness
 
 
-class ParcelsV1(_Model):
+class ParcelsV1(_SWRModel):
     version: Literal[1] = 1
     generatedAt: str
     sources: ParcelsSources

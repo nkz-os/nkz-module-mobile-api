@@ -17,12 +17,16 @@ _TABLE: dict[str, tuple[str, str, str]] = {
 
 def build(metric: Metric, days: int, raw: SourceResult) -> SeriesV1:
     key, field, unit = _TABLE[metric]
-    rows = raw.data.get(key) if raw.status == "ok" and isinstance(raw.data, dict) else None
+    if raw.status != "ok":
+        return SeriesV1(metric=metric, unit=unit, days=days, points=[], source=raw.status)
+    rows = raw.data.get(key) if isinstance(raw.data, dict) else None
+    if not isinstance(rows, list):
+        return SeriesV1(metric=metric, unit=unit, days=days, points=[], source="failed")
     points: list[SeriesPoint] = []
-    for r in rows if isinstance(rows, list) else []:
+    for r in rows:
         if not isinstance(r, dict) or not _str(r.get("date")):
             continue
         points.append(SeriesPoint(date=r["date"], value=_num(r.get(field))))
     points.sort(key=lambda p: p.date)
-    source = "empty" if raw.status == "ok" and not points else raw.status
+    source = "empty" if not points else "ok"
     return SeriesV1(metric=metric, unit=unit, days=days, points=points, source=source)

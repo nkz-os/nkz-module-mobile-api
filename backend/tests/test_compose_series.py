@@ -44,3 +44,9 @@ def test_non_ok_status_passthrough(status):
 
 def test_ok_with_empty_list_is_empty():
     assert compose.build("vigor", 7, ok("points", [])).source == "empty"
+
+
+@pytest.mark.parametrize("bad_data", [None, "oops", [], {"wrong": []}, {"points": "not-a-list"}, {"points": None}])
+def test_malformed_ok_payload_is_failed_not_empty(bad_data):
+    out = compose.build("vigor", 7, SourceResult("ok", data=bad_data))
+    assert out.points == [] and out.source == "failed"

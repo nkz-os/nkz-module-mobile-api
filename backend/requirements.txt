@@ -4,3 +4,4 @@ uvicorn[standard]
 httpx>=0.26
 pydantic>=2
 pydantic-settings>=2
+redis>=5.0

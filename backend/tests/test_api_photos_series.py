@@ -225,6 +225,30 @@ def test_series_failed_not_cached(client, auth_headers, respx_mock):
     assert r.json()["source"] == "ok"
 
 
+def test_series_timeout_is_honest_and_not_cached(client, auth_headers, respx_mock):
+    route = respx_mock.get("http://veg/api/vegetation/bff/history")
+    route.mock(side_effect=httpx.ReadTimeout("slow"))
+    r1 = client.get(f"{B}/p1/series?metric=vigor&days=30", headers=auth_headers)
+    assert r1.status_code == 200
+    assert r1.json()["source"] == "timeout" and r1.json()["points"] == []
+    assert client.app.state.cache_series.get("acmefarm", f"series:{URN}:vigor:30") is None
+
+    route.mock(return_value=httpx.Response(200, json={"points": []}))
+    r2 = client.get(f"{B}/p1/series?metric=vigor&days=30", headers=auth_headers)
+    assert r2.status_code == 200
+    assert r2.json()["source"] == "empty" and r2.json()["points"] == []
+    assert client.app.state.cache_series.get("acmefarm", f"series:{URN}:vigor:30") is not None
+
+
+def test_series_malformed_200_is_failed_and_not_cached(client, auth_headers, respx_mock):
+    route = respx_mock.get(f"http://wx/api/weather/parcel/{URN}/daily")
+    route.mock(return_value=httpx.Response(200, json={"error": "unexpected"}))
+    r = client.get(f"{B}/p1/series?metric=rain&days=7", headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()["source"] == "failed" and r.json()["points"] == []
+    assert client.app.state.cache_series.get("acmefarm", f"series:{URN}:rain:7") is None
+
+
 BAD = "urn:x%2F..%2F..%2Finternal"
 
 
