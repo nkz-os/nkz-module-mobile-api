@@ -20,6 +20,7 @@ router = APIRouter()
 def _refresh_settings(settings: Settings) -> Settings:
     return settings.model_copy(
         update={
+            "source_timeout_s": settings.swr_refresh_source_timeout_s,
             "source_timeout_parcels_s": settings.swr_refresh_timeout_parcels_s,
             "request_budget_s": settings.swr_refresh_budget_s,
         }
@@ -62,18 +63,18 @@ async def get_parcels(request: Request, ctx=identity):
         return ParcelsV1.model_validate(hit.payload)
 
     ident = from_request(request, ctx)
+    fetch_cfg = _refresh_settings(settings)
     if hit.status == "stale" and hit.payload is not None:
-        refresh_cfg = _refresh_settings(settings)
 
         async def _refresh() -> None:
-            out, good = await _fetch_parcels(app, refresh_cfg, ident, allow_shared=False)
+            out, good = await _fetch_parcels(app, fetch_cfg, ident, allow_shared=False)
             if good:
                 await app.state.swr_parcels.set(tenant, key, out.model_dump(by_alias=True))
 
         app.state.swr_parcels.trigger_refresh(tenant, key, _refresh)
         return ParcelsV1.model_validate(hit.payload).model_copy(update={"stale": True})
 
-    out, good = await _fetch_parcels(app, settings, ident, allow_shared=True)
+    out, good = await _fetch_parcels(app, fetch_cfg, ident, allow_shared=True)
     if good:
         await app.state.swr_parcels.set(tenant, key, out.model_dump(by_alias=True))
     return out

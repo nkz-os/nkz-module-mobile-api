@@ -24,6 +24,7 @@ LANGS = ("es", "eu", "en")
 def _refresh_settings(settings: Settings) -> Settings:
     return settings.model_copy(
         update={
+            "source_timeout_s": settings.swr_refresh_source_timeout_s,
             "source_timeout_parcels_s": settings.swr_refresh_timeout_parcels_s,
             "request_budget_s": settings.swr_refresh_budget_s,
         }
@@ -103,18 +104,18 @@ async def get_briefing(
 
     ident = from_request(request, ctx)
     client = app.orion(ctx)
+    fetch_cfg = _refresh_settings(settings)
     if hit.status == "stale" and hit.payload is not None:
-        refresh_cfg = _refresh_settings(settings)
 
         async def _refresh() -> None:
-            out, good, _not_found = await _fetch_briefing(app, refresh_cfg, ident, client, urn, lang)
+            out, good, _not_found = await _fetch_briefing(app, fetch_cfg, ident, client, urn, lang)
             if good and out is not None:
                 await app.state.swr_briefing.set(tenant, key, out.model_dump(by_alias=True))
 
         app.state.swr_briefing.trigger_refresh(tenant, key, _refresh)
         return BriefingV1.model_validate(hit.payload).model_copy(update={"stale": True})
 
-    out, good, not_found = await _fetch_briefing(app, settings, ident, client, urn, lang)
+    out, good, not_found = await _fetch_briefing(app, fetch_cfg, ident, client, urn, lang)
     if not_found or out is None:
         return JSONResponse(status_code=404, content={"error": "parcel_not_found"})
     if good:

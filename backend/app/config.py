@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     source_timeout_s: float = 5.0
     source_timeout_parcels_s: float = 10.0  # crop-health /parcels fans out per parcel
     request_budget_s: float = 12.0
+    swr_refresh_source_timeout_s: float = 12.0
     swr_refresh_timeout_parcels_s: float = 20.0  # matches crop-health WORKLIST_REQUEST_DEADLINE_S
     swr_refresh_budget_s: float = 25.0
 
@@ -37,9 +38,9 @@ class Settings(BaseSettings):
     cache_ttl_series_s: int = 300
 
     # SWR stale windows beyond fresh TTL (seconds)
-    cache_stale_ttl_briefing_s: int = 600
-    cache_stale_ttl_today_s: int = 600
-    cache_stale_ttl_parcels_s: int = 600
+    cache_stale_ttl_briefing_s: int = 21600
+    cache_stale_ttl_today_s: int = 21600
+    cache_stale_ttl_parcels_s: int = 21600
 
     # Optional Redis backend for SWR cache (empty = in-memory fallback)
     redis_url: str = ""

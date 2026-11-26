@@ -23,6 +23,7 @@ REPORT_ROLES = ("TenantAdmin", "TechnicalConsultant")
 def _refresh_settings(settings: Settings) -> Settings:
     return settings.model_copy(
         update={
+            "source_timeout_s": settings.swr_refresh_source_timeout_s,
             "source_timeout_parcels_s": settings.swr_refresh_timeout_parcels_s,
             "request_budget_s": settings.swr_refresh_budget_s,
         }
@@ -73,18 +74,18 @@ async def get_today(request: Request, lang: str | None = Query(default=None), ct
         return TodayV1.model_validate(hit.payload)
 
     ident = from_request(request, ctx)
+    fetch_cfg = _refresh_settings(settings)
     if hit.status == "stale" and hit.payload is not None:
-        refresh_cfg = _refresh_settings(settings)
 
         async def _refresh() -> None:
-            out, good = await _fetch_today(app, refresh_cfg, ident, lang, wants_report)
+            out, good = await _fetch_today(app, fetch_cfg, ident, lang, wants_report)
             if good:
                 await app.state.swr_today.set(tenant, key, out.model_dump(by_alias=True))
 
         app.state.swr_today.trigger_refresh(tenant, key, _refresh)
         return TodayV1.model_validate(hit.payload).model_copy(update={"stale": True})
 
-    out, good = await _fetch_today(app, settings, ident, lang, wants_report)
+    out, good = await _fetch_today(app, fetch_cfg, ident, lang, wants_report)
     if good:
         await app.state.swr_today.set(tenant, key, out.model_dump(by_alias=True))
     return out

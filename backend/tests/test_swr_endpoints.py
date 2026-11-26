@@ -74,16 +74,17 @@ def async_client(settings_env, clock):
     from app.main import create_app
 
     app = create_app()
-    app.state.swr_today = SWRCache(30, 600, clock=lambda: clock[0])
-    app.state.swr_parcels = SWRCache(60, 600, clock=lambda: clock[0])
-    app.state.swr_briefing = SWRCache(60, 600, clock=lambda: clock[0])
+    s = app.state.settings
+    app.state.swr_today = SWRCache(s.cache_ttl_today_s, s.cache_stale_ttl_today_s, clock=lambda: clock[0])
+    app.state.swr_parcels = SWRCache(s.cache_ttl_parcels_s, s.cache_stale_ttl_parcels_s, clock=lambda: clock[0])
+    app.state.swr_briefing = SWRCache(s.cache_ttl_briefing_s, s.cache_stale_ttl_briefing_s, clock=lambda: clock[0])
     return app
 
 
 @pytest.mark.asyncio
 async def test_today_swr_fresh_stale_singleflight_and_extended_budget(async_client, auth_headers, respx_mock, clock, monkeypatch):
     app = async_client
-    observed_timeouts: list[float] = []
+    observed_budgets: list[tuple[float, float, float]] = []
     gate = asyncio.Event()
     refresh_calls = 0
 
@@ -93,8 +94,10 @@ async def test_today_swr_fresh_stale_singleflight_and_extended_budget(async_clie
 
     async def spy_parcels(http, settings, ident):
         nonlocal refresh_calls
-        observed_timeouts.append(settings.source_timeout_parcels_s)
-        if len(observed_timeouts) > 1:
+        observed_budgets.append(
+            (settings.source_timeout_s, settings.source_timeout_parcels_s, settings.request_budget_s)
+        )
+        if len(observed_budgets) > 1:
             refresh_calls += 1
             await gate.wait()
         return await orig_parcels(http, settings, ident)
@@ -110,13 +113,13 @@ async def test_today_swr_fresh_stale_singleflight_and_extended_budget(async_clie
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
-            # 1. Cold miss -> foreground fetch with normal 10s timeout, no stale flag
+            # 1. Cold miss -> foreground fetch uses extended budget so first request populates cache
             r1 = await ac.get("/api/mobile/today", headers=auth_headers)
             assert r1.status_code == 200
             b1 = r1.json()
             assert "stale" not in b1
             assert b1["generatedAt"]
-            assert observed_timeouts == [10.0]
+            assert observed_budgets == [(12.0, 20.0, 25.0)]
 
             # 2. Fresh hit -> no upstream call, no stale flag, identical generatedAt
             clock[0] += 10.0
@@ -143,8 +146,8 @@ async def test_today_swr_fresh_stale_singleflight_and_extended_budget(async_clie
             gate.set()
             await app.state.swr_today.wait_inflight()
 
-            # Extended budget was used in background refresh (20.0s matching WORKLIST_REQUEST_DEADLINE_S)
-            assert observed_timeouts == [10.0, 20.0]
+            # Extended budget was used for both cold miss and background refresh
+            assert observed_budgets == [(12.0, 20.0, 25.0), (12.0, 20.0, 25.0)]
 
             # 4. Next request gets the refreshed fresh payload without stale flag
             r5 = await ac.get("/api/mobile/today", headers=auth_headers)
@@ -189,9 +192,23 @@ async def test_today_degraded_refresh_does_not_overwrite_good_cache(async_client
 
 @pytest.mark.asyncio
 async def test_parcels_swr_stale_refresh_bypasses_shared_and_preserves_good_on_degraded(
-    async_client, auth_headers, respx_mock, clock
+    async_client, auth_headers, respx_mock, clock, monkeypatch
 ):
     app = async_client
+    observed_budgets: list[tuple[float, float, float]] = []
+
+    from app.sources import crop_health as ch_mod
+
+    orig_parcels = ch_mod.parcels
+
+    async def spy_parcels(http, settings, ident):
+        observed_budgets.append(
+            (settings.source_timeout_s, settings.source_timeout_parcels_s, settings.request_budget_s)
+        )
+        return await orig_parcels(http, settings, ident)
+
+    monkeypatch.setattr(ch_mod, "parcels", spy_parcels)
+
     parcels_route = respx_mock.get("http://ch/api/crop-health/parcels").mock(
         return_value=httpx.Response(200, json=PARCELS_V1)
     )
@@ -206,6 +223,7 @@ async def test_parcels_swr_stale_refresh_bypasses_shared_and_preserves_good_on_d
             b1 = r1.json()
             assert "stale" not in b1
             assert b1["parcels"][0]["parcelName"] == "Norte"
+            assert observed_budgets == [(12.0, 20.0, 25.0)]
 
             # Fresh hit
             clock[0] += 20.0
@@ -232,6 +250,7 @@ async def test_parcels_swr_stale_refresh_bypasses_shared_and_preserves_good_on_d
             assert "stale" not in b5
             assert b5["parcels"][0]["parcelName"] == "Norte Updated"
             assert risk_route.call_count == 3
+            assert observed_budgets == [(12.0, 20.0, 25.0)] * 3
 
 
 @pytest.mark.asyncio
@@ -239,6 +258,19 @@ async def test_briefing_swr_fresh_stale_and_degraded_protection(
     async_client, auth_headers, respx_mock, clock, monkeypatch
 ):
     app = async_client
+    observed_budgets: list[tuple[float, float, float]] = []
+
+    from app.sources import weather as wx_mod
+
+    orig_agro = wx_mod.agro_status
+
+    async def spy_agro(http, settings, ident, urn):
+        observed_budgets.append(
+            (settings.source_timeout_s, settings.source_timeout_parcels_s, settings.request_budget_s)
+        )
+        return await orig_agro(http, settings, ident, urn)
+
+    monkeypatch.setattr(wx_mod, "agro_status", spy_agro)
 
     async def fake_timeline(tenant, urn, *a, **k):
         return TIMELINE
@@ -289,6 +321,7 @@ async def test_briefing_swr_fresh_stale_and_degraded_protection(
             b1 = r1.json()
             assert r1.status_code == 200 and "stale" not in b1
             assert b1["parcelName"] == "Norte"
+            assert observed_budgets == [(12.0, 20.0, 25.0)]
 
             # Fresh hit
             clock[0] += 30.0
@@ -312,6 +345,7 @@ async def test_briefing_swr_fresh_stale_and_degraded_protection(
 
             r5 = await ac.get("/api/mobile/briefing/p1", headers=auth_headers)
             assert "stale" not in r5.json() and r5.json()["parcelName"] == "Norte v2"
+            assert observed_budgets == [(12.0, 20.0, 25.0)] * 3
 
 
 @pytest.mark.asyncio
