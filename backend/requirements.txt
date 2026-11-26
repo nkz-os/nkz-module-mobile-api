@@ -1,4 +1,4 @@
-nkz-platform-sdk>=0.15.0
+nkz-platform-sdk>=0.15.0,<0.24
 fastapi>=0.115
 uvicorn[standard]
 httpx>=0.26
