@@ -173,7 +173,8 @@ async def test_shared_client_timeout_covers_the_request_budget(settings_env):
     settings = get_settings()
     http = base.client(settings)
     try:
-        assert http.timeout.read == settings.request_budget_s
-        assert settings.request_budget_s >= settings.source_timeout_parcels_s
+        assert http.timeout.read == max(settings.request_budget_s, settings.swr_refresh_budget_s)
+        assert http.timeout.read >= settings.request_budget_s >= settings.source_timeout_parcels_s
+        assert http.timeout.read >= settings.swr_refresh_timeout_parcels_s
     finally:
         await http.aclose()

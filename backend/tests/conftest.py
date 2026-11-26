@@ -18,6 +18,8 @@ def settings_env(monkeypatch):
     monkeypatch.setenv("VEGETATION_URL", "http://veg")
     monkeypatch.setenv("NOTIFICATIONS_URL", "http://notif")
     monkeypatch.setenv("ORION_LD_URL", "http://orion:1026")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("REDIS_PASSWORD", raising=False)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
